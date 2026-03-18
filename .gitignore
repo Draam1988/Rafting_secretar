@@ -1,0 +1,15 @@
+.DS_Store
+Context.md
+Pravila-rafting-Novye.pdf
+RaftSecretary_MVP_TZ_v1.md
+docs/
+RaftSecretary/.pytest_cache/
+RaftSecretary/__pycache__/
+RaftSecretary/**/*.pyc
+RaftSecretary/dist/
+RaftSecretary/build/
+RaftSecretary/*.spec
+RaftSecretary/data/*.db
+!RaftSecretary/data/.gitkeep
+RaftSecretary/exports/
+RaftSecretary/docs/plans/
