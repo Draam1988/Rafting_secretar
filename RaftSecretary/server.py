@@ -54,7 +54,14 @@ def main() -> None:
         if method == "POST":
             form_data = parse_post_form_data(environ)
 
-        status, headers, body = app.handle(method, path, form_data=form_data)
+        try:
+            status, headers, body = app.handle(method, path, form_data=form_data)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            error_html = f"<pre>Ошибка экспорта:\n{traceback.format_exc()}</pre>".encode("utf-8")
+            start_response("500 Internal Server Error", [("Content-Type", "text/html; charset=utf-8")])
+            return [error_html]
         start_response(status, headers)
         return [body if isinstance(body, bytes) else body.encode("utf-8")]
 

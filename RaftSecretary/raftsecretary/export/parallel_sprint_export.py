@@ -83,7 +83,7 @@ def build_parallel_sprint_pdf(db_path: Path) -> bytes:
             place = place_map.get(team_name)
             pts = points_for_place("parallel_sprint", place) if place else 0
             base_time, penalty, total = _get_result(result_by_team.get(team_name), None)
-            lineup = _lineup_text(team, lineup_flags)
+            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
             write_table_row(pdf, [
                 (str(team.start_number), 8), (team.name, 45), (lineup, 55), (team.region, 35),
                 (base_time, 18), (penalty, 18), (total, 18),

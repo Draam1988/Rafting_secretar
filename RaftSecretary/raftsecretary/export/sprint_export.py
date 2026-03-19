@@ -114,7 +114,7 @@ def build_sprint_pdf(db_path: Path) -> bytes:
             entry = entry_by_team.get(team.name)
             place = places.get(team.name)
             pts = points_for_place("sprint", place) if place else 0
-            lineup = _lineup_text(team, lineup_flags)
+            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
             write_table_row(pdf, [
                 (str(entry.start_order) if entry and entry.start_order else "", 10),
                 (str(team.start_number), 8),

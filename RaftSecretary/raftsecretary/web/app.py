@@ -2679,74 +2679,80 @@ class WebApp:
 
     # ── Export download routes ──────────────────────────────────────────────
 
+    @staticmethod
+    def _safe_filename(db_name: str, prefix: str, ext: str) -> str:
+        import re as _re
+        base = _re.sub(r"[^A-Za-z0-9_-]", "_", db_name.replace(".db", ""))
+        return f"{prefix}_{base}.{ext}" if base else f"{prefix}_protocol.{ext}"
+
     def _sprint_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.sprint_export import build_sprint_pdf
         db_name = query.get("db", "")
         data = build_sprint_pdf(self.data_dir / db_name)
-        fn = f"sprint_{db_name.replace('.db', '')}.pdf"
+        fn = self._safe_filename(db_name, "sprint", "pdf")
         return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _sprint_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.sprint_export import build_sprint_xlsx
         db_name = query.get("db", "")
         data = build_sprint_xlsx(self.data_dir / db_name)
-        fn = f"sprint_{db_name.replace('.db', '')}.xlsx"
+        fn = self._safe_filename(db_name, "sprint", "xlsx")
         return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _slalom_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.slalom_export import build_slalom_pdf
         db_name = query.get("db", "")
         data = build_slalom_pdf(self.data_dir / db_name)
-        fn = f"slalom_{db_name.replace('.db', '')}.pdf"
+        fn = self._safe_filename(db_name, "slalom", "pdf")
         return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _slalom_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.slalom_export import build_slalom_xlsx
         db_name = query.get("db", "")
         data = build_slalom_xlsx(self.data_dir / db_name)
-        fn = f"slalom_{db_name.replace('.db', '')}.xlsx"
+        fn = self._safe_filename(db_name, "slalom", "xlsx")
         return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _parallel_sprint_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.parallel_sprint_export import build_parallel_sprint_pdf
         db_name = query.get("db", "")
         data = build_parallel_sprint_pdf(self.data_dir / db_name)
-        fn = f"h2h_{db_name.replace('.db', '')}.pdf"
+        fn = self._safe_filename(db_name, "h2h", "pdf")
         return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _parallel_sprint_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.parallel_sprint_export import build_parallel_sprint_xlsx
         db_name = query.get("db", "")
         data = build_parallel_sprint_xlsx(self.data_dir / db_name)
-        fn = f"h2h_{db_name.replace('.db', '')}.xlsx"
+        fn = self._safe_filename(db_name, "h2h", "xlsx")
         return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _long_race_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.long_race_export import build_long_race_pdf
         db_name = query.get("db", "")
         data = build_long_race_pdf(self.data_dir / db_name)
-        fn = f"long_race_{db_name.replace('.db', '')}.pdf"
+        fn = self._safe_filename(db_name, "long_race", "pdf")
         return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _long_race_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.long_race_export import build_long_race_xlsx
         db_name = query.get("db", "")
         data = build_long_race_xlsx(self.data_dir / db_name)
-        fn = f"long_race_{db_name.replace('.db', '')}.xlsx"
+        fn = self._safe_filename(db_name, "long_race", "xlsx")
         return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _combined_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.combined_export import build_combined_pdf
         db_name = query.get("db", "")
         data = build_combined_pdf(self.data_dir / db_name)
-        fn = f"combined_{db_name.replace('.db', '')}.pdf"
+        fn = self._safe_filename(db_name, "combined", "pdf")
         return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     def _combined_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
         from raftsecretary.export.combined_export import build_combined_xlsx
         db_name = query.get("db", "")
         data = build_combined_xlsx(self.data_dir / db_name)
-        fn = f"combined_{db_name.replace('.db', '')}.xlsx"
+        fn = self._safe_filename(db_name, "combined", "xlsx")
         return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
 
     # ── End export download routes ──────────────────────────────────────────

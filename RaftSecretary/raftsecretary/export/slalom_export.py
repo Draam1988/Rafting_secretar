@@ -81,7 +81,7 @@ def build_slalom_pdf(db_path: Path) -> bytes:
             place_text = str(place) if place else ""
             run_by_attempt = {getattr(r, "attempt_number", 0): r for r in runs}
             scored_by_att = {r.attempt_number: r for r in scored_runs}
-            lineup = _lineup_text(team, lineup_flags)
+            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
 
             for attempt_num in (1, 2):
                 raw = run_by_attempt.get(attempt_num)

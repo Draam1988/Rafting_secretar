@@ -86,7 +86,7 @@ def build_long_race_pdf(db_path: Path) -> bytes:
             start_order_text = "н/у" if entry and entry.start_order == 99 else (
                 str(entry.start_order) if entry and entry.start_order else ""
             )
-            lineup = _lineup_text(team, lineup_flags)
+            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
             write_table_row(pdf, [
                 (start_order_text, 10), (str(team.start_number), 8),
                 (team.name, 40), (lineup, 55), (team.region, 35),
