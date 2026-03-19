@@ -132,7 +132,7 @@ class WebApp:
         method: str,
         path: str,
         form_data: dict[str, str] | None = None,
-    ) -> tuple[str, list[tuple[str, str]], str]:
+    ) -> tuple[str, list[tuple[str, str]], str | bytes]:
         parsed = urlparse(path)
         route_path = parsed.path
         query = {key: values[0] for key, values in parse_qs(parsed.query).items()}
@@ -175,6 +175,26 @@ class WebApp:
             return self._long_race_results_protocol_response(query)
         if method == "GET" and route_path == "/export/combined-results":
             return self._combined_results_protocol_response(query)
+        if method == "GET" and route_path == "/export/sprint-results/pdf":
+            return self._sprint_results_pdf_response(query)
+        if method == "GET" and route_path == "/export/sprint-results/xlsx":
+            return self._sprint_results_xlsx_response(query)
+        if method == "GET" and route_path == "/export/slalom-results/pdf":
+            return self._slalom_results_pdf_response(query)
+        if method == "GET" and route_path == "/export/slalom-results/xlsx":
+            return self._slalom_results_xlsx_response(query)
+        if method == "GET" and route_path == "/export/parallel-sprint-results/pdf":
+            return self._parallel_sprint_results_pdf_response(query)
+        if method == "GET" and route_path == "/export/parallel-sprint-results/xlsx":
+            return self._parallel_sprint_results_xlsx_response(query)
+        if method == "GET" and route_path == "/export/long-race-results/pdf":
+            return self._long_race_results_pdf_response(query)
+        if method == "GET" and route_path == "/export/long-race-results/xlsx":
+            return self._long_race_results_xlsx_response(query)
+        if method == "GET" and route_path == "/export/combined-results/pdf":
+            return self._combined_results_pdf_response(query)
+        if method == "GET" and route_path == "/export/combined-results/xlsx":
+            return self._combined_results_xlsx_response(query)
         if method == "POST" and route_path == "/settings/save":
             return self._save_settings_response(form_data or {})
         if method == "POST" and route_path == "/judges/save":
@@ -2005,13 +2025,23 @@ class WebApp:
         query: dict[str, str],
     ) -> tuple[str, list[tuple[str, str]], str]:
         db_name = query.get("db", "")
+        def _doc_row(title: str, base_url: str) -> str:
+            return (
+                f'<li class="export-row">'
+                f'<span class="export-row-title">{title}</span>'
+                f'<span class="export-row-actions">'
+                f'<a href="{base_url}?db={escape(db_name)}">Просмотр</a>'
+                f'<a href="{base_url}/pdf?db={escape(db_name)}">PDF</a>'
+                f'<a href="{base_url}/xlsx?db={escape(db_name)}">Excel</a>'
+                f'</span></li>'
+            )
         document_rows = "".join(
             [
-                f'<li><a href="/export/sprint-results?db={escape(db_name)}">Итоговый протокол спринта</a></li>',
-                f'<li><a href="/export/slalom-results?db={escape(db_name)}">Итоговый протокол слалома</a></li>',
-                f'<li><a href="/export/parallel-sprint-results?db={escape(db_name)}">Итоговый протокол H2H</a></li>',
-                f'<li><a href="/export/long-race-results?db={escape(db_name)}">Итоговый протокол длинной гонки</a></li>',
-                f'<li><a href="/export/combined-results?db={escape(db_name)}">Протокол многоборья</a></li>',
+                _doc_row("Итоговый протокол спринта", "/export/sprint-results"),
+                _doc_row("Итоговый протокол слалома", "/export/slalom-results"),
+                _doc_row("Итоговый протокол H2H", "/export/parallel-sprint-results"),
+                _doc_row("Итоговый протокол длинной гонки", "/export/long-race-results"),
+                _doc_row("Протокол многоборья", "/export/combined-results"),
                 '<li><span class="subtle">Судейский состав — скоро</span></li>',
                 '<li><span class="subtle">Стартовый протокол длинной гонки — скоро</span></li>',
             ]
@@ -2117,6 +2147,7 @@ class WebApp:
 <section class="panel-page protocol-page">
   <div class="page-head protocol-head">
     <a class="secondary-link protocol-back" href="/export?db={escape(db_name)}">Назад к протоколам</a>
+    <span class="protocol-download-actions"><a class="secondary-link" href="/export/sprint-results/pdf?db={escape(db_name)}">PDF</a><a class="secondary-link" href="/export/sprint-results/xlsx?db={escape(db_name)}">Excel</a></span>
     <div class="protocol-title-block">
       <p class="eyebrow">{escape(settings.organizer or 'Организатор не указан')}</p>
       <h1>Итоговый протокол</h1>
@@ -2275,6 +2306,7 @@ class WebApp:
 <section class="panel-page protocol-page">
   <div class="page-head protocol-head">
     <a class="secondary-link protocol-back" href="/export?db={escape(db_name)}">Назад к протоколам</a>
+    <span class="protocol-download-actions"><a class="secondary-link" href="/export/combined-results/pdf?db={escape(db_name)}">PDF</a><a class="secondary-link" href="/export/combined-results/xlsx?db={escape(db_name)}">Excel</a></span>
     <div class="protocol-title-block">
       <p class="eyebrow">{escape(settings.organizer or 'Организатор не указан')}</p>
       <h1>Протокол многоборья</h1>
@@ -2398,6 +2430,7 @@ class WebApp:
 <section class="panel-page protocol-page">
   <div class="page-head protocol-head">
     <a class="secondary-link protocol-back" href="/export?db={escape(db_name)}">Назад к протоколам</a>
+    <span class="protocol-download-actions"><a class="secondary-link" href="/export/slalom-results/pdf?db={escape(db_name)}">PDF</a><a class="secondary-link" href="/export/slalom-results/xlsx?db={escape(db_name)}">Excel</a></span>
     <div class="protocol-title-block">
       <p class="eyebrow">{escape(settings.organizer or 'Организатор не указан')}</p>
       <h1>Итоговый протокол</h1>
@@ -2498,6 +2531,7 @@ class WebApp:
 <section class="panel-page protocol-page">
   <div class="page-head protocol-head">
     <a class="secondary-link protocol-back" href="/export?db={escape(db_name)}">Назад к протоколам</a>
+    <span class="protocol-download-actions"><a class="secondary-link" href="/export/parallel-sprint-results/pdf?db={escape(db_name)}">PDF</a><a class="secondary-link" href="/export/parallel-sprint-results/xlsx?db={escape(db_name)}">Excel</a></span>
     <div class="protocol-title-block">
       <p class="eyebrow">{escape(settings.organizer or 'Организатор не указан')}</p>
       <h1>Итоговый протокол</h1>
@@ -2610,6 +2644,7 @@ class WebApp:
 <section class="panel-page protocol-page">
   <div class="page-head protocol-head">
     <a class="secondary-link protocol-back" href="/export?db={escape(db_name)}">Назад к протоколам</a>
+    <span class="protocol-download-actions"><a class="secondary-link" href="/export/long-race-results/pdf?db={escape(db_name)}">PDF</a><a class="secondary-link" href="/export/long-race-results/xlsx?db={escape(db_name)}">Excel</a></span>
     <div class="protocol-title-block">
       <p class="eyebrow">{escape(settings.organizer or 'Организатор не указан')}</p>
       <h1>Итоговый протокол</h1>
@@ -2641,6 +2676,80 @@ class WebApp:
 """,
         )
         return ("200 OK", [("Content-Type", "text/html; charset=utf-8")], body)
+
+    # ── Export download routes ──────────────────────────────────────────────
+
+    def _sprint_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.sprint_export import build_sprint_pdf
+        db_name = query.get("db", "")
+        data = build_sprint_pdf(self.data_dir / db_name)
+        fn = f"sprint_{db_name.replace('.db', '')}.pdf"
+        return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _sprint_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.sprint_export import build_sprint_xlsx
+        db_name = query.get("db", "")
+        data = build_sprint_xlsx(self.data_dir / db_name)
+        fn = f"sprint_{db_name.replace('.db', '')}.xlsx"
+        return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _slalom_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.slalom_export import build_slalom_pdf
+        db_name = query.get("db", "")
+        data = build_slalom_pdf(self.data_dir / db_name)
+        fn = f"slalom_{db_name.replace('.db', '')}.pdf"
+        return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _slalom_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.slalom_export import build_slalom_xlsx
+        db_name = query.get("db", "")
+        data = build_slalom_xlsx(self.data_dir / db_name)
+        fn = f"slalom_{db_name.replace('.db', '')}.xlsx"
+        return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _parallel_sprint_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.parallel_sprint_export import build_parallel_sprint_pdf
+        db_name = query.get("db", "")
+        data = build_parallel_sprint_pdf(self.data_dir / db_name)
+        fn = f"h2h_{db_name.replace('.db', '')}.pdf"
+        return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _parallel_sprint_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.parallel_sprint_export import build_parallel_sprint_xlsx
+        db_name = query.get("db", "")
+        data = build_parallel_sprint_xlsx(self.data_dir / db_name)
+        fn = f"h2h_{db_name.replace('.db', '')}.xlsx"
+        return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _long_race_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.long_race_export import build_long_race_pdf
+        db_name = query.get("db", "")
+        data = build_long_race_pdf(self.data_dir / db_name)
+        fn = f"long_race_{db_name.replace('.db', '')}.pdf"
+        return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _long_race_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.long_race_export import build_long_race_xlsx
+        db_name = query.get("db", "")
+        data = build_long_race_xlsx(self.data_dir / db_name)
+        fn = f"long_race_{db_name.replace('.db', '')}.xlsx"
+        return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _combined_results_pdf_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.combined_export import build_combined_pdf
+        db_name = query.get("db", "")
+        data = build_combined_pdf(self.data_dir / db_name)
+        fn = f"combined_{db_name.replace('.db', '')}.pdf"
+        return ("200 OK", [("Content-Type", "application/pdf"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    def _combined_results_xlsx_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], bytes]:
+        from raftsecretary.export.combined_export import build_combined_xlsx
+        db_name = query.get("db", "")
+        data = build_combined_xlsx(self.data_dir / db_name)
+        fn = f"combined_{db_name.replace('.db', '')}.xlsx"
+        return ("200 OK", [("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), ("Content-Disposition", f'attachment; filename="{fn}"')], data)
+
+    # ── End export download routes ──────────────────────────────────────────
 
     def _combined_response(
         self,
@@ -3375,6 +3484,21 @@ def _page(title: str, content: str) -> str:
       }}
       .compact-list.roomy li {{
         margin-bottom: 10px;
+      }}
+      .export-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }}
+      .export-row-actions {{
+        display: flex;
+        gap: 12px;
+        flex-shrink: 0;
+      }}
+      .protocol-download-actions {{
+        display: flex;
+        gap: 8px;
       }}
       .panel-page {{
         display: grid;

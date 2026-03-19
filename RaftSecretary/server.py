@@ -56,7 +56,7 @@ def main() -> None:
 
         status, headers, body = app.handle(method, path, form_data=form_data)
         start_response(status, headers)
-        return [body.encode("utf-8")]
+        return [body if isinstance(body, bytes) else body.encode("utf-8")]
 
     host = "127.0.0.1"
     port = 8000

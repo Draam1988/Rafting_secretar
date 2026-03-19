@@ -73,4 +73,4 @@ def write_footer(pdf: FPDF, chief_judge: str, chief_secretary: str) -> None:
 
 
 def pdf_bytes(pdf: FPDF) -> bytes:
-    return pdf.output()
+    return bytes(pdf.output())
