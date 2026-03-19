@@ -448,6 +448,12 @@ class WebApp:
             f'<label>Дата <input name="competition_date_{index}" type="date" value="{escape(day)}" /></label>'
             for index, day in enumerate(competition_days, start=1)
         )
+        organizer_rows_src = settings.organizers if settings.organizers else ([settings.organizer] if settings.organizer else [""])
+        organizer_inputs = "".join(
+            f'<div class="organizer-row"><input name="organizer_{index}" value="{escape(org)}" placeholder="Название организации" />'
+            f'<button type="button" class="remove-item-btn" onclick="this.closest(\'.organizer-row\').remove()" title="Удалить">×</button></div>'
+            for index, org in enumerate(organizer_rows_src, start=1)
+        )
         visible_dates = ", ".join(settings.competition_dates) or settings.competition_date or "Не указаны"
         discipline_controls = "".join(
             f"""
@@ -494,7 +500,18 @@ class WebApp:
       <form method="post" action="/settings/save" class="stack-form">
         <input type="hidden" name="db" value="{escape(db_name)}" />
         <label>Название <input name="name" value="{escape(settings.name)}" /></label>
-        <label>Организатор <input name="organizer" value="{escape(settings.organizer)}" /></label>
+        <div class="date-stack">
+          <div class="section-head compact-head">
+            <label>Организаторы</label>
+            <button type="button" class="secondary-link card-button" onclick="addOrganizer()">+ Добавить</button>
+          </div>
+          <div id="organizers-list">
+            {organizer_inputs}
+          </div>
+          <template id="organizer-template">
+            <div class="organizer-row"><input name="organizer___INDEX__" placeholder="Название организации" /><button type="button" class="remove-item-btn" onclick="this.closest('.organizer-row').remove()" title="Удалить">×</button></div>
+          </template>
+        </div>
         <label>Место проведения <input name="venue" value="{escape(settings.venue)}" /></label>
         <div class="date-stack">
           <div class="section-head compact-head">
@@ -784,13 +801,15 @@ class WebApp:
                 categories.append(
                     Category(boat_class=boat_class, sex=sex, age_group=age_group)
                 )
+        organizers = _organizers_from_form(form_data)
         save_competition_settings(
             db_path,
             CompetitionSettingsRecord(
                 name=form_data.get("name", "").strip(),
                 competition_date=", ".join(_competition_dates_from_form(form_data)),
                 description=form_data.get("description", "").strip(),
-                organizer=form_data.get("organizer", "").strip(),
+                organizer=", ".join(organizers),
+                organizers=organizers,
                 venue=form_data.get("venue", "").strip(),
                 enabled_disciplines=disciplines,
                 categories=categories,
@@ -3461,6 +3480,32 @@ def _page(title: str, content: str) -> str:
       .compact-head {{
         margin-bottom: 0;
       }}
+      .organizer-row {{
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }}
+      .organizer-row input {{
+        flex: 1;
+        width: auto;
+        min-width: 0;
+      }}
+      .remove-item-btn {{
+        flex-shrink: 0;
+        width: auto;
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        padding: 4px 9px;
+      }}
+      .remove-item-btn:hover {{
+        border-color: #c00;
+        color: #c00;
+      }}
       .compact-list {{
         margin: 12px 0 0;
         padding-left: 18px;
@@ -4665,6 +4710,17 @@ def _page(title: str, content: str) -> str:
           return;
         }}
         const nextIndex = container.querySelectorAll("input[name^='competition_date_']").length + 1;
+        const html = template.innerHTML.replaceAll("__INDEX__", String(nextIndex));
+        container.insertAdjacentHTML("beforeend", html);
+      }}
+
+      function addOrganizer() {{
+        const container = document.getElementById("organizers-list");
+        const template = document.getElementById("organizer-template");
+        if (!container || !template) {{
+          return;
+        }}
+        const nextIndex = container.querySelectorAll("input[name^='organizer_']").length + 1;
         const html = template.innerHTML.replaceAll("__INDEX__", String(nextIndex));
         container.insertAdjacentHTML("beforeend", html);
       }}
@@ -6606,6 +6662,16 @@ def _competition_dates_from_form(form_data: dict[str, str]) -> list[str]:
         (key, value.strip())
         for key, value in form_data.items()
         if key.startswith("competition_date_") and value.strip()
+    ]
+    items.sort(key=lambda item: int(item[0].split("_")[-1]))
+    return [value for _, value in items]
+
+
+def _organizers_from_form(form_data: dict[str, str]) -> list[str]:
+    items = [
+        (key, value.strip())
+        for key, value in form_data.items()
+        if key.startswith("organizer_") and value.strip()
     ]
     items.sort(key=lambda item: int(item[0].split("_")[-1]))
     return [value for _, value in items]

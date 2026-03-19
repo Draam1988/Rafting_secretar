@@ -11,7 +11,7 @@ from raftsecretary.storage.parallel_sprint_storage import (
 from raftsecretary.storage.team_storage import load_teams
 from raftsecretary.export.pdf_builder import (
     new_pdf, pdf_bytes, write_doc_header, write_category_header,
-    write_table_header, write_table_row, write_footer,
+    write_table_header, write_table_row, write_table_row_multiline, write_footer,
 )
 from raftsecretary.export.xlsx_builder import (
     new_workbook, workbook_bytes, write_meta_row, write_header_row, write_data_row,
@@ -83,12 +83,24 @@ def build_parallel_sprint_pdf(db_path: Path) -> bytes:
             place = place_map.get(team_name)
             pts = points_for_place("parallel_sprint", place) if place else 0
             base_time, penalty, total = _get_result(result_by_team.get(team_name), None)
-            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
-            write_table_row(pdf, [
-                (str(team.start_number), 8), (team.name, 45), (lineup, 55), (team.region, 35),
-                (base_time, 18), (penalty, 18), (total, 18),
-                (str(place) if place else "", 12), (str(pts), 12),
-            ])
+            lineup = _lineup_text(team, lineup_flags)
+            write_table_row_multiline(
+                pdf,
+                cells_before=[
+                    (str(team.start_number), 8),
+                    (team.name, 45),
+                ],
+                multiline_text=lineup,
+                multiline_width=55,
+                cells_after=[
+                    (team.region, 35),
+                    (base_time, 18),
+                    (penalty, 18),
+                    (total, 18),
+                    (str(place) if place else "", 12),
+                    (str(pts), 12),
+                ],
+            )
         pdf.ln(3)
 
     write_footer(pdf, _judge_name(judges.chief_judge), _judge_name(judges.chief_secretary))

@@ -17,6 +17,7 @@ class CompetitionSettingsRecord:
     slalom_gate_count: int
     competition_dates: list[str] = field(default_factory=list)
     organizer: str = ""
+    organizers: list[str] = field(default_factory=list)
     venue: str = ""
 
 
@@ -44,7 +45,7 @@ def save_competition_settings(
                 settings.name,
                 settings.competition_date,
                 settings.description,
-                settings.organizer,
+                "\n".join(settings.organizers) if settings.organizers else settings.organizer,
                 settings.venue,
                 ",".join(settings.enabled_disciplines),
                 settings.slalom_gate_count,
@@ -95,6 +96,7 @@ def load_competition_settings(db_path: Path) -> CompetitionSettingsRecord:
             competition_dates=[],
             description="",
             organizer="",
+            organizers=[],
             venue="",
             enabled_disciplines=[],
             categories=[],
@@ -107,6 +109,8 @@ def load_competition_settings(db_path: Path) -> CompetitionSettingsRecord:
     ]
     disciplines = [value for value in row[3].split(",") if value]
     competition_dates = [day_row[0] for day_row in day_rows] or _normalize_competition_dates(row[1])
+    organizers = [x.strip() for x in (row[5] or "").split("\n") if x.strip()]
+    organizer_display = ", ".join(organizers) if organizers else (row[5] or "")
     return CompetitionSettingsRecord(
         name=row[0],
         competition_date=row[1],
@@ -115,7 +119,8 @@ def load_competition_settings(db_path: Path) -> CompetitionSettingsRecord:
         categories=categories,
         slalom_gate_count=row[4],
         competition_dates=competition_dates,
-        organizer=row[5],
+        organizer=organizer_display,
+        organizers=organizers,
         venue=row[6],
     )
 

@@ -65,6 +65,47 @@ def write_table_row(pdf: FPDF, cells: list[tuple[str, float]], align: str = "L")
     pdf.ln()
 
 
+def write_table_row_multiline(
+    pdf: FPDF,
+    cells_before: list[tuple[str, float]],
+    multiline_text: str,
+    multiline_width: float,
+    cells_after: list[tuple[str, float]],
+    line_h: float = 4.5,
+) -> None:
+    """Draw a table row where one column contains multi-line text (\\n-separated).
+
+    All other cells are drawn with a fixed height equal to line_h * number_of_lines
+    so the row stays aligned. The multiline column uses multi_cell().
+    """
+    x0 = pdf.get_x()
+    y0 = pdf.get_y()
+
+    lines = multiline_text.split("\n") if multiline_text else [""]
+    n_lines = max(1, len(lines))
+    row_h = line_h * n_lines
+
+    pdf.set_font("DejaVu", "", 8)
+
+    # Draw cells to the left of the multiline column
+    for text, w in cells_before:
+        pdf.cell(w, row_h, text, border=1)
+    ml_x = pdf.get_x()
+
+    # Skip over multiline column, draw cells to the right
+    pdf.set_x(ml_x + multiline_width)
+    for text, w in cells_after:
+        pdf.cell(w, row_h, text, border=1)
+    pdf.ln()
+
+    # Now fill the multiline column at saved position
+    pdf.set_xy(ml_x, y0)
+    pdf.multi_cell(multiline_width, line_h, multiline_text, border=1)
+
+    # Move cursor to start of next row
+    pdf.set_xy(x0, y0 + row_h)
+
+
 def write_footer(pdf: FPDF, chief_judge: str, chief_secretary: str) -> None:
     pdf.ln(5)
     pdf.set_font("DejaVu", "", 9)

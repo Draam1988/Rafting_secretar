@@ -81,7 +81,10 @@ def build_slalom_pdf(db_path: Path) -> bytes:
             place_text = str(place) if place else ""
             run_by_attempt = {getattr(r, "attempt_number", 0): r for r in runs}
             scored_by_att = {r.attempt_number: r for r in scored_runs}
-            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
+            lineup = _lineup_text(team, lineup_flags)
+            lineup_lines = lineup.split("\n")
+            n_lineup = max(1, len(lineup_lines))
+            lineup_row_h = 4.5 * n_lineup
 
             for attempt_num in (1, 2):
                 raw = run_by_attempt.get(attempt_num)
@@ -103,24 +106,39 @@ def build_slalom_pdf(db_path: Path) -> bytes:
                     gate_penalties += [0] * (gate_count - len(gate_penalties))
 
                 pdf.set_font("DejaVu", "", 8)
+                row_h = lineup_row_h if attempt_num == 1 else 5
                 if attempt_num == 1:
-                    pdf.cell(8, 5, str(team.start_number), border=1)
-                    pdf.cell(30, 5, team.name[:18], border=1)
-                    pdf.cell(25, 5, team.region[:14], border=1)
-                    pdf.cell(35, 5, lineup[:22], border=1)
+                    x0 = pdf.get_x()
+                    y0 = pdf.get_y()
+                    pdf.cell(8, row_h, str(team.start_number), border=1)
+                    pdf.cell(30, row_h, team.name[:18], border=1)
+                    pdf.cell(25, row_h, team.region[:14], border=1)
+                    lineup_x = pdf.get_x()
+                    pdf.set_x(lineup_x + 35)
+                    pdf.cell(18, row_h, attempt_label, border=1)
+                    pdf.cell(15, row_h, start_text, border=1, align="C")
+                    pdf.cell(15, row_h, finish_text, border=1, align="C")
+                    for gp in gate_penalties[:gate_count]:
+                        pdf.cell(gate_w, row_h, str(gp) if gp else "", border=1, align="C")
+                    pdf.cell(15, row_h, total_text, border=1, align="C")
+                    pdf.cell(10, row_h, place_text, border=1, align="C")
+                    pdf.ln()
+                    pdf.set_xy(lineup_x, y0)
+                    pdf.multi_cell(35, 4.5, lineup, border=1)
+                    pdf.set_xy(x0, y0 + row_h)
                 else:
                     pdf.cell(8, 5, "", border=1)
                     pdf.cell(30, 5, "", border=1)
                     pdf.cell(25, 5, "", border=1)
                     pdf.cell(35, 5, "", border=1)
-                pdf.cell(18, 5, attempt_label, border=1)
-                pdf.cell(15, 5, start_text, border=1, align="C")
-                pdf.cell(15, 5, finish_text, border=1, align="C")
-                for gp in gate_penalties[:gate_count]:
-                    pdf.cell(gate_w, 5, str(gp) if gp else "", border=1, align="C")
-                pdf.cell(15, 5, total_text, border=1, align="C")
-                pdf.cell(10, 5, place_text if attempt_num == 1 else "", border=1, align="C")
-                pdf.ln()
+                    pdf.cell(18, 5, attempt_label, border=1)
+                    pdf.cell(15, 5, start_text, border=1, align="C")
+                    pdf.cell(15, 5, finish_text, border=1, align="C")
+                    for gp in gate_penalties[:gate_count]:
+                        pdf.cell(gate_w, 5, str(gp) if gp else "", border=1, align="C")
+                    pdf.cell(15, 5, total_text, border=1, align="C")
+                    pdf.cell(10, 5, "", border=1, align="C")
+                    pdf.ln()
         pdf.ln(3)
 
     write_footer(pdf, _judge_name(judges.chief_judge), _judge_name(judges.chief_secretary))

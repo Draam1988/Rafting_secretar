@@ -9,7 +9,7 @@ from raftsecretary.storage.sprint_storage import load_sprint_entries, load_sprin
 from raftsecretary.storage.team_storage import load_teams
 from raftsecretary.export.pdf_builder import (
     new_pdf, pdf_bytes, write_doc_header, write_category_header,
-    write_table_header, write_table_row, write_footer, CONTENT_W,
+    write_table_header, write_table_row, write_table_row_multiline, write_footer, CONTENT_W,
 )
 from raftsecretary.export.xlsx_builder import (
     new_workbook, workbook_bytes, write_meta_row, write_header_row, write_data_row,
@@ -114,19 +114,25 @@ def build_sprint_pdf(db_path: Path) -> bytes:
             entry = entry_by_team.get(team.name)
             place = places.get(team.name)
             pts = points_for_place("sprint", place) if place else 0
-            lineup = _lineup_text(team, lineup_flags).replace("\n", "; ")
-            write_table_row(pdf, [
-                (str(entry.start_order) if entry and entry.start_order else "", 10),
-                (str(team.start_number), 8),
-                (team.name, 40),
-                (lineup, 55),
-                (team.region, 35),
-                (entry.start_time if entry else "", 18),
-                (_fmt(entry.base_time_seconds) if entry else "", 18),
-                (_fmt(entry.behavior_penalty_seconds) if entry else "", 18),
-                (str(place) if place else "", 12),
-                (str(pts), 12),
-            ])
+            lineup = _lineup_text(team, lineup_flags)
+            write_table_row_multiline(
+                pdf,
+                cells_before=[
+                    (str(entry.start_order) if entry and entry.start_order else "", 10),
+                    (str(team.start_number), 8),
+                    (team.name, 40),
+                ],
+                multiline_text=lineup,
+                multiline_width=55,
+                cells_after=[
+                    (team.region, 35),
+                    (entry.start_time if entry else "", 18),
+                    (_fmt(entry.base_time_seconds) if entry else "", 18),
+                    (_fmt(entry.behavior_penalty_seconds) if entry else "", 18),
+                    (str(place) if place else "", 12),
+                    (str(pts), 12),
+                ],
+            )
         pdf.ln(3)
 
     write_footer(pdf, _judge_name(judges.chief_judge), _judge_name(judges.chief_secretary))
