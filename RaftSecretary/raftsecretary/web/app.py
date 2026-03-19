@@ -748,8 +748,8 @@ class WebApp:
         <input type="hidden" name="db" value="{escape(db_name)}" />
         <input type="hidden" name="category_key" value="{escape(category_key)}" />
         <div class="team-actions">
-          <label>Время старта <input class="inline-time" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
-          <label>Интервал <input class="inline-time" name="draw_interval" value="00:02" placeholder="00:02" /></label>
+          <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
+          <label>Интервал <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" /></label>
           <button type="submit" class="inline-action">Провести жеребьевку</button>
           <button type="submit" class="secondary-link inline-action" name="redraw" value="1">Пережеребить</button>
         </div>
@@ -775,6 +775,7 @@ class WebApp:
         </thead>
         <tbody>{rows}</tbody>
       </table>
+      <p class="order-conflict-hint">Исправьте дублирующиеся номера старта перед сохранением</p>
       <button type="submit">Сохранить результаты спринта</button>
     </form>
   </section>
@@ -865,7 +866,7 @@ class WebApp:
         ).key
         return (
             "303 See Other",
-            [("Location", f"/teams?db={quote(db_name)}&open_category={quote(category_key)}")],
+            [("Location", f"/teams?db={quote(db_name)}&open_category={quote(category_key)}#{('category-' + category_key.replace(':', '-'))}")],
             "",
         )
 
@@ -979,7 +980,7 @@ class WebApp:
                 )
             )
         save_sprint_entries(db_path, category_key, entries)
-        return ("303 See Other", [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
+        return ("303 See Other", [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}&saved=1")], "")
 
     def _draw_sprint_response(
         self,
@@ -1011,7 +1012,7 @@ class WebApp:
                 )
             )
         save_sprint_entries(db_path, category_key, entries)
-        return ("303 See Other", [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
+        return ("303 See Other", [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}&saved=1")], "")
 
     def _save_sprint_lineup_response(
         self,
@@ -1872,8 +1873,8 @@ class WebApp:
           <ul class="compact-list">{available_categories}</ul>
         </div>
         <div class="team-actions">
-          <label>Время старта <input class="inline-time" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
-          <label>Промежуток <input class="inline-time" name="draw_interval" value="00:10" placeholder="00:10" /></label>
+          <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
+          <label>Промежуток <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:10" placeholder="00:10" /></label>
           <button type="submit" formaction="/long-race/build" class="inline-action">Сформировать стартовый порядок</button>
         </div>
       </div>
@@ -3242,7 +3243,7 @@ def _parallel_competitor_row_html(
     <div class="h2h-region">{escape(team.region if team is not None else '')}</div>
   </div>
   <div class="h2h-time-cell">
-    <input name="{side}_base_time_seconds" value="{_format_mmss(base_time_seconds)}" placeholder="00:00"{disabled_attr} />
+    <input class="inline-time" data-time-mask="mmss" name="{side}_base_time_seconds" value="{_format_mmss(base_time_seconds)}" placeholder="00:00"{disabled_attr} />
     <input value="{_format_mmss(penalty_seconds)}" readonly="readonly" />
     <input value="{_format_mmss(total)}" readonly="readonly" />
   </div>
@@ -3354,6 +3355,26 @@ def _page(title: str, content: str) -> str:
         --danger: #9b4b43;
       }}
       * {{ box-sizing: border-box; }}
+      #save-toast {{
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        background: #2a7a2a;
+        color: #fff;
+        padding: 12px 22px;
+        border-radius: 6px;
+        font-family: Georgia, serif;
+        font-size: 15px;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.25s, transform 0.25s;
+        pointer-events: none;
+        z-index: 9999;
+      }}
+      #save-toast.save-toast-show {{
+        opacity: 1;
+        transform: translateY(0);
+      }}
       body {{
         margin: 0;
         font-family: Georgia, "Times New Roman", serif;
@@ -3505,6 +3526,20 @@ def _page(title: str, content: str) -> str:
       .remove-item-btn:hover {{
         border-color: #c00;
         color: #c00;
+      }}
+      input.order-conflict {{
+        border-color: #c00 !important;
+        background: #fff0f0 !important;
+        color: #c00;
+      }}
+      .order-conflict-hint {{
+        color: #c00;
+        font-size: 13px;
+        margin-top: 4px;
+        display: none;
+      }}
+      .order-conflict-hint.visible {{
+        display: block;
       }}
       .compact-list {{
         margin: 12px 0 0;
@@ -4565,6 +4600,10 @@ def _page(title: str, content: str) -> str:
       .inline-action {{
         width: auto;
       }}
+      .reserve-card {{
+        background: #f5f3ee;
+        border-color: #ccc8bc;
+      }}
       .judge-card {{
         border: 1px solid #e7dfd0;
         background: #fcfaf5;
@@ -4777,62 +4816,105 @@ def _page(title: str, content: str) -> str:
           if (!(input instanceof HTMLInputElement) || input.dataset.timeMaskBound === "1") {{
             return;
           }}
-          input.setAttribute("inputmode", "numeric");
-          normalizeTimeRaw(input);
-          input.addEventListener("focus", () => {{
-            input.select();
-            input.dataset.timeReplace = "1";
-          }});
-          input.addEventListener("keydown", (event) => {{
-            const allowedNavigation = ["Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
-            if (allowedNavigation.includes(event.key)) {{
-              return;
-            }}
-            if (event.key === "Backspace" || event.key === "Delete") {{
-              event.preventDefault();
-              let raw = (input.dataset.timeRaw || "").replace(/\\D/g, "");
-              if (input.dataset.timeReplace === "1") {{
-                raw = "";
-                input.dataset.timeReplace = "0";
-              }} else {{
-                raw = raw.slice(0, -1);
-              }}
-              input.dataset.timeRaw = raw;
-              input.value = formatDigitsAsTime(raw, input.dataset.timeMask || "hhmm");
-              input.select();
-              return;
-            }}
-            if (!/^\\d$/.test(event.key)) {{
-              event.preventDefault();
-              return;
-            }}
-            event.preventDefault();
-            let raw = (input.dataset.timeRaw || "").replace(/\\D/g, "");
-            const limit = input.dataset.timeMask === "hhmmss" ? 6 : 4;
-            if (input.dataset.timeReplace === "1") {{
-              raw = event.key;
-              input.dataset.timeReplace = "0";
-            }} else {{
-              raw = (raw + event.key).slice(-limit);
-            }}
-            input.dataset.timeRaw = raw;
-            input.value = formatDigitsAsTime(raw, input.dataset.timeMask || "hhmm");
-            input.select();
-          }});
-          input.addEventListener("paste", (event) => {{
-            event.preventDefault();
-            const pasted = event.clipboardData?.getData("text") || "";
-            const limit = input.dataset.timeMask === "hhmmss" ? 6 : 4;
-            input.dataset.timeRaw = pasted.replace(/\\D/g, "").slice(0, limit);
-            input.dataset.timeReplace = "0";
-            normalizeTimeRaw(input);
-            input.select();
-          }});
-          input.addEventListener("blur", () => {{
-            input.dataset.timeReplace = "0";
-            normalizeTimeRaw(input);
-          }});
           input.dataset.timeMaskBound = "1";
+          input.setAttribute("inputmode", "numeric");
+
+          const mask = input.dataset.timeMask || "mmss";
+          // character positions of each digit slot inside the formatted string
+          const slots = mask === "hhmmss" ? [0, 1, 3, 4, 6, 7] : [0, 1, 3, 4];
+          const emptyVal = mask === "hhmmss" ? "00:00:00" : "00:00";
+
+          function buildValue(digits) {{
+            const d = digits.join("").padStart(slots.length, "0").slice(0, slots.length);
+            return mask === "hhmmss"
+              ? d[0]+d[1]+":"+d[2]+d[3]+":"+d[4]+d[5]
+              : d[0]+d[1]+":"+d[2]+d[3];
+          }}
+
+          function initValue() {{
+            const raw = (input.value || "").replace(/\\D/g, "").padStart(slots.length, "0").slice(0, slots.length);
+            input.value = buildValue(raw.split(""));
+          }}
+
+          function getDigits() {{
+            return slots.map((p) => input.value[p] || "0");
+          }}
+
+          function setDigits(arr) {{
+            input.value = buildValue(arr);
+          }}
+
+          function getSlot() {{
+            const pos = input.selectionStart ?? 0;
+            for (let i = 0; i < slots.length; i++) {{
+              if (slots[i] >= pos) return i;
+            }}
+            return slots.length - 1;
+          }}
+
+          function setSlot(i) {{
+            const idx = Math.max(0, Math.min(i, slots.length - 1));
+            const pos = slots[idx];
+            input.setSelectionRange(pos, pos + 1);
+          }}
+
+          initValue();
+
+          input.addEventListener("focus", () => setSlot(0));
+
+          input.addEventListener("click", () => {{
+            requestAnimationFrame(() => setSlot(getSlot()));
+          }});
+
+          input.addEventListener("keydown", (e) => {{
+            if (e.key === "Tab") return;
+            e.preventDefault();
+            const slot = getSlot();
+            if (/^\\d$/.test(e.key)) {{
+              const d = getDigits();
+              d[slot] = e.key;
+              setDigits(d);
+              setSlot(slot + 1);
+              return;
+            }}
+            if (e.key === "Backspace") {{
+              const d = getDigits();
+              const target = slot > 0 ? slot - 1 : 0;
+              d[target] = "0";
+              setDigits(d);
+              setSlot(target);
+              return;
+            }}
+            if (e.key === "Delete") {{
+              const d = getDigits();
+              d[slot] = "0";
+              setDigits(d);
+              setSlot(slot);
+              return;
+            }}
+            if (e.key === "ArrowLeft")  {{ setSlot(slot - 1); return; }}
+            if (e.key === "ArrowRight") {{ setSlot(slot + 1); return; }}
+            if (e.key === "Home")  {{ setSlot(0); return; }}
+            if (e.key === "End")   {{ setSlot(slots.length - 1); return; }}
+          }});
+
+          input.addEventListener("paste", (e) => {{
+            e.preventDefault();
+            const pasted = (e.clipboardData?.getData("text") || "").replace(/\\D/g, "");
+            const d = getDigits();
+            let slot = getSlot();
+            for (const ch of pasted) {{
+              if (slot >= slots.length) break;
+              d[slot++] = ch;
+            }}
+            setDigits(d);
+            setSlot(Math.min(slot, slots.length - 1));
+          }});
+
+          input.addEventListener("blur", () => {{
+            const d = getDigits();
+            setDigits(d);
+          }});
         }});
       }}
 
@@ -5068,6 +5150,40 @@ def _page(title: str, content: str) -> str:
         }});
       }}
 
+      function applyStartOrderValidation() {{
+        function runValidation(container) {{
+          const inputs = Array.from(container.querySelectorAll("input.js-start-order"));
+          if (!inputs.length) return;
+          const form = inputs[0].closest("form");
+          const hint = form ? form.querySelector(".order-conflict-hint") : null;
+          const submitBtn = form ? (form.querySelector("button[type='submit']:not([name])") || form.querySelector("button[type='submit']")) : null;
+
+          const counts = {{}};
+          inputs.forEach((inp) => {{
+            const v = (inp.value || "").trim();
+            if (v && v !== "99") counts[v] = (counts[v] || 0) + 1;
+          }});
+          let hasDup = false;
+          inputs.forEach((inp) => {{
+            const v = (inp.value || "").trim();
+            const dup = !!(v && v !== "99" && counts[v] > 1);
+            inp.classList.toggle("order-conflict", dup);
+            if (dup) hasDup = true;
+          }});
+          if (submitBtn) {{
+            submitBtn.disabled = hasDup;
+            submitBtn.title = hasDup ? "Устраните дублирующиеся номера старта" : "";
+          }}
+          if (hint) hint.classList.toggle("visible", hasDup);
+        }}
+
+        // bind on existing inputs
+        document.querySelectorAll("input.js-start-order").forEach((inp) => {{
+          inp.addEventListener("input", () => runValidation(inp.closest("form") || document));
+        }});
+        runValidation(document);
+      }}
+
       document.addEventListener("input", (event) => {{
         if (event.target instanceof HTMLInputElement && event.target.hasAttribute("data-age-min")) {{
           validateMemberYears();
@@ -5077,6 +5193,7 @@ def _page(title: str, content: str) -> str:
       applyTimeMasks();
       applySlalomPenaltyPickers();
       applySlalomAutoSave();
+      applyStartOrderValidation();
       recalcSlalomSheet();
       window.addEventListener("load", () => {{
         if (!window.location.hash) {{
@@ -5090,6 +5207,24 @@ def _page(title: str, content: str) -> str:
           target.scrollIntoView({{ behavior: "auto", block: "start" }});
         }}, 0);
       }});
+
+      // saved=1 toast
+      (function() {{
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("saved") !== "1") return;
+        const toast = document.createElement("div");
+        toast.id = "save-toast";
+        toast.textContent = "✓ Сохранено";
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add("save-toast-show"));
+        setTimeout(() => {{
+          toast.classList.remove("save-toast-show");
+          setTimeout(() => toast.remove(), 400);
+        }}, 2500);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("saved");
+        history.replaceState(null, "", url.toString());
+      }})();
     </script>
   </body>
 </html>
@@ -5346,15 +5481,15 @@ def _sprint_table_row(
 <tr id="slalom-team-{team.start_number}">
   <td class="col-pp">
     <input type="hidden" name="row_{index}_team_name" value="{escape(team.name)}" />
-    <input name="row_{index}_start_order" value="{entry.start_order if entry else index}" />
+    <input class="js-start-order" inputmode="numeric" name="row_{index}_start_order" value="{entry.start_order if entry else index}" />
   </td>
-  <td class="col-time"><input name="row_{index}_start_time" value="{escape(entry.start_time if entry else '')}" placeholder="10:00" /></td>
+  <td class="col-time"><input class="inline-time" data-time-mask="mmss" name="row_{index}_start_time" value="{escape(entry.start_time if entry else '')}" placeholder="10:00" /></td>
   <td>{escape(team.name)}</td>
   <td class="col-number">{team.start_number}</td>
   <td class="crew-cell">{crew}</td>
   <td>{escape(team.region)}</td>
-  <td class="col-time"><input name="row_{index}_base_time_seconds" value="{_format_mmss(entry.base_time_seconds if entry else 0)}" placeholder="01:23" /></td>
-  <td class="col-time"><input name="row_{index}_behavior_penalty_seconds" value="{_format_mmss(entry.behavior_penalty_seconds if entry else 0)}" placeholder="00:00" /></td>
+  <td class="col-time"><input class="inline-time" data-time-mask="mmss" name="row_{index}_base_time_seconds" value="{_format_mmss(entry.base_time_seconds if entry else 0)}" placeholder="01:23" /></td>
+  <td class="col-time"><input class="inline-time" data-time-mask="mmss" name="row_{index}_behavior_penalty_seconds" value="{_format_mmss(entry.behavior_penalty_seconds if entry else 0)}" placeholder="00:00" /></td>
   <td class="col-place">{place_value}</td>
   <td class="col-status">{_sprint_status_select(f"row_{index}_status", status_value)}</td>
 </tr>
@@ -5389,13 +5524,13 @@ def _long_race_table_row(
     <input type="hidden" name="row_{index}_team_name" value="{escape(team.name)}" />
     {_long_race_group_select(f"row_{index}_start_order", entry.start_order if entry else 1)}
   </td>
-  <td class="col-time"><input class="long-race-dependent" name="row_{index}_start_time" value="{escape(entry.start_time if entry else '')}" placeholder="10:00"{disabled_attr} /></td>
+  <td class="col-time"><input class="inline-time long-race-dependent" data-time-mask="mmss" name="row_{index}_start_time" value="{escape(entry.start_time if entry else '')}" placeholder="10:00"{disabled_attr} /></td>
   <td>{escape(team.name)}</td>
   <td class="col-number">{team.start_number}</td>
   <td class="crew-cell">{crew}</td>
   <td>{escape(team.region)}</td>
-  <td class="col-time"><input class="long-race-dependent" name="row_{index}_base_time_seconds" value="{_format_mmss(entry.base_time_seconds if entry else 0)}" placeholder="30:00"{disabled_attr} /></td>
-  <td class="col-time"><input class="long-race-dependent" name="row_{index}_behavior_penalty_seconds" value="{_format_mmss(entry.behavior_penalty_seconds if entry else 0)}" placeholder="00:00"{disabled_attr} /></td>
+  <td class="col-time"><input class="inline-time long-race-dependent" data-time-mask="mmss" name="row_{index}_base_time_seconds" value="{_format_mmss(entry.base_time_seconds if entry else 0)}" placeholder="30:00"{disabled_attr} /></td>
+  <td class="col-time"><input class="inline-time long-race-dependent" data-time-mask="mmss" name="row_{index}_behavior_penalty_seconds" value="{_format_mmss(entry.behavior_penalty_seconds if entry else 0)}" placeholder="00:00"{disabled_attr} /></td>
   <td class="col-place">{place_value}</td>
   <td class="col-status">{_sprint_status_select(f"row_{index}_status", status_value, is_non_participant, "long-race-dependent")}</td>
 </tr>
@@ -5417,7 +5552,7 @@ def _parallel_sprint_start_node_html(
     <label class="subtle">Время старта</label>
     <input type="hidden" name="row_{index}_team_name" value="{escape(team.name)}" />
     <input type="hidden" name="row_{index}_start_order" value="{entry.start_order if entry else index}" />
-    <input name="row_{index}_start_time" value="{escape(entry.start_time if entry else '')}" placeholder="10:00" />
+    <input class="inline-time" data-time-mask="hhmm" name="row_{index}_start_time" value="{escape(entry.start_time if entry else '')}" placeholder="10:00" />
   </div>
   <div class="h2h-start-node-main">
     <div class="h2h-start-node-top">
@@ -6705,7 +6840,7 @@ def _team_category_block(
     ) + _team_member_fields(
         _crew_main_count(category.boat_class) + 1,
         "reserve",
-        "З",
+        "Зап",
         _member_or_empty(editing_team, _crew_main_count(category.boat_class), "reserve"),
         age_min,
         age_max,
@@ -6713,8 +6848,9 @@ def _team_category_block(
     saved_cards = "".join(_saved_team_card(db_name, team) for team in teams) or "<p class=\"subtle\">Команд в этой категории пока нет.</p>"
     button_label = "Сохранить изменения" if editing_team else "Сохранить команду"
     open_attr = " open" if category.key == active_category else ""
+    category_anchor = "category-" + category.key.replace(":", "-")
     return f"""
-<details class="panel-card"{open_attr}>
+<details class="panel-card" id="{category_anchor}"{open_attr}>
   <summary class="section-head">
     <div>
       <h2>{escape(_category_label(category))}</h2>
@@ -6764,11 +6900,12 @@ def _team_member_fields(
     age_attrs = ""
     if age_min is not None and age_max is not None:
         age_attrs = f' data-age-min="{age_min}" data-age-max="{age_max}"'
+    reserve_class = " reserve-card" if role == "reserve" else ""
     return f"""
-<section class="judge-card">
+<section class="judge-card{reserve_class}">
   <div class="member-row">
     <div class="member-index">
-      <label>№</label>
+      <label>{"Зап" if role == "reserve" else "№"}</label>
       <div class="member-index-value">{escape(label)}</div>
     </div>
     <label>ФИО <input name="member_{index}_full_name" value="{escape(member.full_name if member else '')}" /></label>
@@ -6817,7 +6954,7 @@ def _saved_team_card(db_name: str, team: Team) -> str:
       <p class="subtle">{escape(team.club or 'Клуб не указан')} · {escape(team.region or 'Регион не указан')}</p>
     </div>
     <div class="team-actions">
-      <a class="secondary-link inline-action" href="/teams?db={escape(db_name)}&edit_category={quote(team.category_key)}&edit_number={team.start_number}">Редактировать</a>
+      <a class="secondary-link inline-action" href="/teams?db={escape(db_name)}&edit_category={quote(team.category_key)}&edit_number={team.start_number}#category-{team.category_key.replace(':', '-')}">Редактировать</a>
       <a class="secondary-link inline-action" href="/teams/delete?db={escape(db_name)}&category={quote(team.category_key)}&start_number={team.start_number}">Удалить</a>
     </div>
   </summary>
