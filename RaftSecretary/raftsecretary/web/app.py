@@ -336,49 +336,60 @@ class WebApp:
         judges_record = load_judges(db_path)
         judges_status, judges_detail = _judges_status(judges_record)
         blocks = [
-            ("Соревнование", f"/settings?db={escape(db_name)}", "ok" if settings.name else "warn", settings.name or "Не настроено"),
-            ("Судьи", f"/judges?db={escape(db_name)}", judges_status, judges_detail),
-            ("Команды", f"/teams?db={escape(db_name)}", "ok" if teams else "warn", f"{len(teams)} команд"),
-            ("Протоколы", f"/export?db={escape(db_name)}", "danger", "Еще не реализовано"),
+            ("Соревнование", f"/settings?db={escape(db_name)}", "ok" if settings.name else "warn", settings.name or "Не настроено", "Настройки"),
+            ("Судьи", f"/judges?db={escape(db_name)}", judges_status, judges_detail, "Персонал"),
+            ("Команды", f"/teams?db={escape(db_name)}", "ok" if teams else "warn", f"{len(teams)} команд", "Реестр"),
+            ("Протоколы", f"/export?db={escape(db_name)}", "danger", "PDF и Excel", "Финализация"),
         ]
         discipline_blocks = []
         if "sprint" in settings.enabled_disciplines:
-            discipline_blocks.append(("Спринт", _first_category_link("/sprint", db_name, settings), "ok" if _has_any_sprint(db_path, settings) else "warn", "Результаты"))
+            discipline_blocks.append(("Спринт", _first_category_link("/sprint", db_name, settings), "ok" if _has_any_sprint(db_path, settings) else "warn", "Результаты", "Дисциплина"))
         if "parallel_sprint" in settings.enabled_disciplines:
-            discipline_blocks.append(("Параллельный спринт", _first_category_link("/parallel-sprint", db_name, settings), "ok" if _has_any_parallel(db_path, settings) else "warn", "Сетка"))
+            discipline_blocks.append(("Параллельный спринт", _first_category_link("/parallel-sprint", db_name, settings), "ok" if _has_any_parallel(db_path, settings) else "warn", "Сетка H2H", "Дисциплина"))
         if "slalom" in settings.enabled_disciplines:
-            discipline_blocks.append(("Слалом", _first_category_link("/slalom", db_name, settings), "ok" if _has_any_slalom(db_path, settings) else "warn", "Попытки"))
+            discipline_blocks.append(("Слалом", _first_category_link("/slalom", db_name, settings), "ok" if _has_any_slalom(db_path, settings) else "warn", "Попытки", "Дисциплина"))
         if "long_race" in settings.enabled_disciplines:
-            discipline_blocks.append(("Длинная гонка", _first_category_link("/long-race", db_name, settings), "ok" if _has_any_long_race(db_path, settings) else "warn", "Результаты"))
+            discipline_blocks.append(("Длинная гонка", _first_category_link("/long-race", db_name, settings), "ok" if _has_any_long_race(db_path, settings) else "warn", "Результаты", "Дисциплина"))
         blocks = blocks[:3] + discipline_blocks + blocks[3:]
         cards = "".join(
             f"""
-<a class="workspace-card {status}" href="{href}">
-  <div class="workspace-head">
-    <h2>{title}</h2>
-    <span class="status-pill {status}">{_status_label(status)}</span>
+<a class="dash-card" href="{href}">
+  <div>
+    <div class="dash-card-head">
+      <span class="dash-card-tag">{escape(tag)}</span>
+      <span class="dash-card-badge {status}">{_status_label(status)}</span>
+    </div>
+    <h3>{title}</h3>
+    <p class="dash-card-detail">{escape(detail)}</p>
   </div>
-  <p>{escape(detail)}</p>
+  <div class="dash-card-footer">
+    <span class="dash-card-link">Открыть</span>
+  </div>
 </a>
 """
-            for title, href, status, detail in blocks
+            for title, href, status, detail, tag in blocks
         )
         body = _page(
             "Рабочий стол секретаря",
             f"""
-<section class="hero compact">
-  <div>
-    <p class="eyebrow">Рабочий стол секретаря</p>
-    <h1>{escape(settings.name or db_name)}</h1>
-    <p class="subtle">{escape(settings.competition_date or "Дата не указана")}</p>
+<section class="panel-page">
+  <div class="dash-hero">
+    <div>
+      <p class="eyebrow">Рабочий стол секретаря</p>
+      <h1>{escape(settings.name or db_name)}</h1>
+      <div class="dash-hero-meta">
+        <span>{escape(settings.competition_date or "Дата не указана")}</span>
+        <span style="opacity:0.4">/</span>
+        <span style="font-style:normal;font-size:12px;letter-spacing:0.05em;opacity:0.6">{escape(db_name)}</span>
+      </div>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="secondary-link" href="/">На стартовый экран</a>
+    </div>
   </div>
-  <div class="meta">
-    <p><a class="secondary-link" href="/">На стартовый экран</a></p>
-    <p><strong>Файл</strong> {escape(db_name)}</p>
+  <div class="dash-grid">
+    {cards}
   </div>
-</section>
-<section class="workspace-grid">
-  {cards}
 </section>
 """,
         )
@@ -3505,6 +3516,106 @@ def _page(title: str, content: str) -> str:
       .status-pill.ok {{ color: var(--ok); }}
       .status-pill.warn {{ color: var(--warn); }}
       .status-pill.danger {{ color: var(--danger); }}
+      /* --- Dashboard Stitch cards --- */
+      .dash-hero {{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 24px;
+        margin-bottom: 36px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+      }}
+      .dash-hero h1 {{
+        font-size: clamp(38px, 6vw, 62px);
+        line-height: 1;
+        margin-bottom: 10px;
+      }}
+      .dash-hero-meta {{
+        font-size: 15px;
+        color: var(--muted);
+        font-style: italic;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }}
+      .dash-hero-actions {{
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        white-space: nowrap;
+      }}
+      .dash-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+        gap: 20px;
+      }}
+      .dash-card {{
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 200px;
+        background: var(--panel);
+        border: 1px solid rgba(177,179,167,0.2);
+        padding: 24px;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.15s;
+      }}
+      .dash-card:hover {{ background: var(--panel2); }}
+      .dash-card-head {{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 14px;
+      }}
+      .dash-card-tag {{
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+        opacity: 0.7;
+      }}
+      .dash-card-badge {{
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+      }}
+      .dash-card-badge.ok {{ color: var(--ok); background: rgba(57,105,72,0.1); }}
+      .dash-card-badge.warn {{ color: #856a00; background: rgba(133,106,0,0.08); }}
+      .dash-card-badge.danger {{ color: var(--danger); background: rgba(158,66,44,0.08); }}
+      .dash-card h3 {{
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }}
+      .dash-card-detail {{
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.5;
+      }}
+      .dash-card-footer {{
+        padding-top: 18px;
+      }}
+      .dash-card-link {{
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-decoration-color: var(--primary-bg);
+        text-underline-offset: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }}
+      @media (max-width: 600px) {{
+        .dash-hero {{ flex-direction: column; align-items: flex-start; }}
+        .dash-hero-actions {{ align-items: flex-start; }}
+      }}
       .stack-form {{
         display: grid;
         gap: 8px;
