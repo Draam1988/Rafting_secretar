@@ -676,8 +676,9 @@ class WebApp:
 <section class="panel-page">
   <div class="page-head">
     <div>
+      <p class="eyebrow">Реестр</p>
       <h1>Команды</h1>
-      <p class="subtle">Добавление участников соревнований</p>
+      <p class="subtle">{len(teams)} команд · {len(settings.categories)} категорий</p>
     </div>
     <a class="secondary-link" href="/dashboard?db={escape(db_name)}">Назад на рабочий стол</a>
   </div>
@@ -3615,6 +3616,155 @@ def _page(title: str, content: str) -> str:
       @media (max-width: 600px) {{
         .dash-hero {{ flex-direction: column; align-items: flex-start; }}
         .dash-hero-actions {{ align-items: flex-start; }}
+      }}
+      /* --- Teams page --- */
+      .tc-category {{
+        border: 1px solid rgba(177,179,167,0.25);
+        background: var(--panel);
+        margin-bottom: 0;
+      }}
+      .tc-category-head {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px;
+        cursor: pointer;
+        list-style: none;
+        border-left: 4px solid transparent;
+        transition: background 0.12s, border-color 0.12s;
+      }}
+      .tc-category-head::-webkit-details-marker {{ display: none; }}
+      .tc-category[open] > .tc-category-head {{
+        border-left-color: var(--ok);
+        background: var(--panel2);
+      }}
+      .tc-category-head:hover {{ background: var(--panel2); }}
+      .tc-category-head h2 {{ font-size: 24px; font-weight: 700; margin: 0; }}
+      .tc-category-count {{
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.6;
+      }}
+      .tc-category-body {{
+        padding: 20px 22px 28px;
+        border-top: 1px solid var(--line);
+      }}
+      .tc-category-action-bar {{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding-bottom: 14px;
+        margin-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+      }}
+      .tc-add-link {{
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-decoration-color: var(--primary-bg);
+        text-underline-offset: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }}
+      .tc-team-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 14px;
+        margin-top: 20px;
+      }}
+      .tc-team-card {{
+        background: var(--bg);
+        border: 1px solid rgba(177,179,167,0.2);
+        border-left: 5px solid var(--primary-bg);
+      }}
+      .tc-team-card[open] > .tc-team-head {{
+        border-bottom: 1px solid var(--line);
+      }}
+      .tc-team-head {{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 14px 16px;
+        cursor: pointer;
+        list-style: none;
+      }}
+      .tc-team-head::-webkit-details-marker {{ display: none; }}
+      .tc-team-num {{
+        display: inline-block;
+        background: var(--primary-bg);
+        color: var(--primary);
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: 16px;
+        font-weight: 900;
+        padding: 1px 8px;
+        margin-bottom: 6px;
+      }}
+      .tc-team-name {{
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: -0.01em;
+        margin-bottom: 3px;
+      }}
+      .tc-team-sub {{
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }}
+      .tc-team-controls {{
+        display: flex;
+        gap: 14px;
+        flex-shrink: 0;
+        padding-left: 12px;
+      }}
+      .tc-team-edit-link {{
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--primary);
+        text-decoration: underline;
+        text-decoration-color: rgba(100,93,83,0.3);
+        text-underline-offset: 3px;
+      }}
+      .tc-team-delete-link {{
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--danger);
+        text-decoration: underline;
+        text-decoration-color: rgba(158,66,44,0.3);
+        text-underline-offset: 3px;
+      }}
+      .tc-team-body {{ padding: 12px 16px 14px; }}
+      .tc-member-row {{
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 5px 0;
+        border-bottom: 1px solid rgba(177,179,167,0.12);
+      }}
+      .tc-member-row:last-child {{ border-bottom: none; }}
+      .tc-member-row.reserve {{
+        color: var(--ok);
+        font-style: italic;
+      }}
+      .tc-meta-row {{
+        display: flex;
+        gap: 24px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
       }}
       .stack-form {{
         display: grid;
@@ -7405,38 +7555,43 @@ def _team_category_block(
     open_attr = " open" if category.key == active_category else ""
     category_anchor = "category-" + category.key.replace(":", "-")
     return f"""
-<details class="panel-card" id="{category_anchor}"{open_attr}>
-  <summary class="section-head">
-    <div>
-      <h2>{escape(_category_label(category))}</h2>
-      <p class="subtle">{len(teams)} команд</p>
-    </div>
-    <span class="secondary-link card-button">+ Добавить команду</span>
+<details class="tc-category" id="{category_anchor}"{open_attr}>
+  <summary class="tc-category-head">
+    <h2>{escape(_category_label(category))}</h2>
+    <span class="tc-category-count">{len(teams)} команд ▾</span>
   </summary>
-  <form method="post" action="/teams/add" class="stack-form">
-    <input type="hidden" name="db" value="{escape(db_name)}" />
-    <input type="hidden" name="boat_class" value="{escape(category.boat_class)}" />
-    <input type="hidden" name="sex" value="{escape(category.sex)}" />
-    <input type="hidden" name="age_group" value="{escape(category.age_group)}" />
-    <input type="hidden" name="editing_category_key" value="{escape(editing_team.category_key if editing_team else '')}" />
-    <input type="hidden" name="editing_start_number" value="{editing_team.start_number if editing_team else ''}" />
-    <div class="team-form-grid">
-      <label>Название команды <input name="name" value="{escape(editing_team.name if editing_team else '')}" /></label>
-      <label>Номер <input name="start_number" value="{editing_team.start_number if editing_team else ''}" /></label>
-      <label>Клуб <input name="club" value="{escape(editing_team.club if editing_team else '')}" /></label>
-      <label>Субъект РФ <input name="region" value="{escape(editing_team.region if editing_team else '')}" /></label>
-      <label>Представитель команды (ФИО) <input name="representative_full_name" value="{escape(editing_team.representative_full_name if editing_team else '')}" /></label>
+  <div class="tc-category-body">
+    <div class="tc-category-action-bar">
+      <p class="section-label" style="margin:0;">{'Редактирование команды' if editing_team else 'Добавление команды'}</p>
+      <span class="tc-add-link">+ Добавить команду</span>
     </div>
-    <div class="team-card">
-      <h3>Состав команды</h3>
-      <div class="judge-grid">
-        {member_fields}
+    <form method="post" action="/teams/add" class="stack-form">
+      <input type="hidden" name="db" value="{escape(db_name)}" />
+      <input type="hidden" name="boat_class" value="{escape(category.boat_class)}" />
+      <input type="hidden" name="sex" value="{escape(category.sex)}" />
+      <input type="hidden" name="age_group" value="{escape(category.age_group)}" />
+      <input type="hidden" name="editing_category_key" value="{escape(editing_team.category_key if editing_team else '')}" />
+      <input type="hidden" name="editing_start_number" value="{editing_team.start_number if editing_team else ''}" />
+      <div class="team-form-grid">
+        <label>Название команды <input name="name" value="{escape(editing_team.name if editing_team else '')}" /></label>
+        <label>Номер <input name="start_number" value="{editing_team.start_number if editing_team else ''}" /></label>
+        <label>Клуб <input name="club" value="{escape(editing_team.club if editing_team else '')}" /></label>
+        <label>Субъект РФ <input name="region" value="{escape(editing_team.region if editing_team else '')}" /></label>
+        <label>Представитель команды (ФИО) <input name="representative_full_name" value="{escape(editing_team.representative_full_name if editing_team else '')}" /></label>
       </div>
+      <div class="team-card">
+        <h3>Состав команды</h3>
+        <div class="judge-grid">
+          {member_fields}
+        </div>
+      </div>
+      <div class="sprint-footer">
+        <button type="submit" class="stitch-save-btn">{button_label}</button>
+      </div>
+    </form>
+    <div class="tc-team-grid">
+      {saved_cards}
     </div>
-    <button type="submit">{button_label}</button>
-  </form>
-  <div class="team-card-list">
-    {saved_cards}
   </div>
 </details>
 """
@@ -7497,27 +7652,34 @@ def _team_members_from_form(form_data: dict[str, str]) -> list[TeamMember]:
 
 def _saved_team_card(db_name: str, team: Team) -> str:
     members = team.crew_members
+    main_members = [m for m in members if m.role != "reserve"]
+    reserve_members = [m for m in members if m.role == "reserve"]
     member_rows = "".join(
-        f"<li>{escape(member.full_name or 'Не заполнено')} - {escape(member.birth_date or 'дата не указана')} - {escape(member.rank or 'разряд не указан')}</li>"
-        for member in members
-    ) or "<li>Состав не заполнен</li>"
+        f'<div class="tc-member-row"><span>{escape(m.full_name or "—")} <span style="opacity:0.5;font-size:11px;">({escape(m.rank or "Б/Р")})</span></span><span style="opacity:0.55;font-size:12px;">{escape(m.birth_date or "")}</span></div>'
+        for m in main_members
+    )
+    reserve_rows = "".join(
+        f'<div class="tc-member-row reserve"><span>Зап: {escape(m.full_name or "—")} <span style="font-size:11px;opacity:0.7;">({escape(m.rank or "Б/Р")})</span></span><span style="font-size:12px;">{escape(m.birth_date or "")}</span></div>'
+        for m in reserve_members
+    )
+    rows_html = (member_rows + reserve_rows) or '<div class="tc-member-row" style="opacity:0.4;">Состав не заполнен</div>'
     return f"""
-<details class="team-card">
-  <summary class="team-card-head">
+<details class="tc-team-card">
+  <summary class="tc-team-head">
     <div>
-      <h3>{escape(team.name)} #{team.start_number}</h3>
-      <p class="subtle">{escape(team.club or 'Клуб не указан')} · {escape(team.region or 'Регион не указан')}</p>
+      <div class="tc-team-num">#{team.start_number}</div>
+      <div class="tc-team-name">{escape(team.name)}</div>
+      <div class="tc-team-sub">{escape(team.region or 'Регион не указан')}{(' · ' + escape(team.club)) if team.club else ''}</div>
     </div>
-    <div class="team-actions">
-      <a class="secondary-link inline-action" href="/teams?db={escape(db_name)}&edit_category={quote(team.category_key)}&edit_number={team.start_number}#category-{team.category_key.replace(':', '-')}">Редактировать</a>
-      <a class="secondary-link inline-action" href="/teams/delete?db={escape(db_name)}&category={quote(team.category_key)}&start_number={team.start_number}">Удалить</a>
+    <div class="tc-team-controls">
+      <a class="tc-team-edit-link" href="/teams?db={escape(db_name)}&edit_category={quote(team.category_key)}&edit_number={team.start_number}#category-{team.category_key.replace(':', '-')}">Ред.</a>
+      <a class="tc-team-delete-link" href="/teams/delete?db={escape(db_name)}&category={quote(team.category_key)}&start_number={team.start_number}">Удалить</a>
     </div>
   </summary>
-  <div class="team-meta">
-    <div><strong>Представитель</strong><br />{escape(team.representative_full_name or 'Не указан')}</div>
-    <div><strong>Участников</strong><br />{len([member for member in members if member.full_name])}</div>
+  <div class="tc-team-body">
+    {rows_html}
+    {f'<div class="tc-meta-row"><span>Представитель: {escape(team.representative_full_name)}</span></div>' if team.representative_full_name else ''}
   </div>
-  <ul class="compact-list roomy">{member_rows}</ul>
 </details>
 """
 
