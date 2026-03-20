@@ -1879,7 +1879,7 @@ class WebApp:
         <div class="team-actions">
           <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
           <label>Промежуток <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:10" placeholder="00:10" /></label>
-          <button type="submit" formaction="/long-race/build" class="inline-action">Сформировать стартовый порядок</button>
+          <button type="submit" formaction="/long-race/build" class="stitch-cta">Сформировать стартовый порядок</button>
         </div>
       </div>
       <table class="protocol-table">
@@ -1899,7 +1899,9 @@ class WebApp:
         </thead>
         <tbody>{rows}</tbody>
       </table>
-      <button type="submit">Сохранить результаты длинной гонки</button>
+      <div class="sprint-footer">
+        <button type="submit" class="stitch-save-btn">Сохранить результаты длинной гонки</button>
+      </div>
     </form>
   </section>
 </section>
