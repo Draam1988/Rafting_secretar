@@ -3829,7 +3829,13 @@ def _page(title: str, content: str) -> str:
         color: var(--ok);
       }}
       .h2h-row.loser {{
-        opacity: 0.55;
+        opacity: 0.75;
+      }}
+      .h2h-row.loser .h2h-team-name {{
+        color: var(--danger);
+      }}
+      .h2h-row.loser .h2h-time-total {{
+        color: var(--danger);
       }}
       .h2h-start-cell,
       .h2h-no-cell,
