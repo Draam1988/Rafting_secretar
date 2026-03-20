@@ -1653,7 +1653,7 @@ class WebApp:
         <span>2-я попытка: интервал, мин</span>
         <input name="attempt_2_interval_minutes" value="2" inputmode="numeric" />
       </label>
-      <button type="submit" class="slalom-schedule-submit">Сформировать старты</button>
+      <button type="submit" class="slalom-schedule-submit stitch-cta">Сформировать старты</button>
     </form>
     <form method="post" action="/slalom/clear" onsubmit="return confirm('Очистить весь слалом для этой категории?');">
       <input type="hidden" name="db" value="{escape(db_name)}" />
@@ -4039,16 +4039,19 @@ def _page(title: str, content: str) -> str:
       }}
       .slalom-sheet th,
       .slalom-sheet td {{
-        border: 1px solid #b0aba3;
+        border: 1px solid var(--line);
         padding: 3px 6px;
         vertical-align: middle;
-        background: #fff;
+        background: var(--surface);
         line-height: 1.1;
       }}
       .slalom-sheet th {{
-        font-size: 12px;
-        font-weight: 600;
-        background: #dedad3;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: var(--panel2);
       }}
       .slalom-sheet .slalom-no,
       .slalom-sheet .slalom-place {{
@@ -4061,13 +4064,14 @@ def _page(title: str, content: str) -> str:
         position: relative;
       }}
       .slalom-sheet .slalom-no-idle {{
-        background: #fff !important;
+        background: var(--surface) !important;
       }}
       .slalom-sheet .slalom-no-partial {{
-        background: #d7c85b !important;
+        background: #c8b84a !important;
       }}
       .slalom-sheet .slalom-no-complete {{
-        background: #7fa844 !important;
+        background: var(--ok) !important;
+        color: #fff;
       }}
       .slalom-sheet .slalom-no-label,
       .slalom-sheet .slalom-place-label {{
@@ -4108,7 +4112,7 @@ def _page(title: str, content: str) -> str:
       .slalom-sheet .slalom-team-block {{
         min-width: 280px;
         padding: 0;
-        background: #fff !important;
+        background: var(--surface) !important;
       }}
       .slalom-sheet .slalom-team-stack {{
         display: grid;
@@ -4126,16 +4130,16 @@ def _page(title: str, content: str) -> str:
         font-size: 15px;
         font-weight: 700;
         white-space: nowrap;
-        background: #f5c4b0 !important;
+        background: var(--primary-bg) !important;
       }}
       .slalom-sheet .slalom-subject {{
         font-size: 12px;
         color: var(--muted);
-        background: #ccc9c3 !important;
+        background: var(--panel2) !important;
       }}
       .slalom-sheet .slalom-lineup {{
         font-size: 12px;
-        background: #ede97a !important;
+        background: var(--panel) !important;
       }}
       .slalom-sheet .slalom-lineup-label {{
         display: block;
@@ -4149,13 +4153,17 @@ def _page(title: str, content: str) -> str:
       .slalom-sheet .slalom-attempt-head,
       .slalom-sheet .slalom-attempt-name {{
         width: 88px;
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         white-space: nowrap;
         text-align: center;
-        background: #dedad3;
+        background: var(--panel2);
+        color: var(--muted);
       }}
       .slalom-sheet .slalom-attempt-spacer {{
-        background: #fafaf8;
+        background: var(--panel);
         text-align: center;
         vertical-align: middle;
       }}
@@ -4167,7 +4175,7 @@ def _page(title: str, content: str) -> str:
       }}
       .slalom-sheet td.slalom-gate,
       .slalom-sheet td.slalom-start-finish {{
-        background: #fafaf8;
+        background: var(--panel);
       }}
       .slalom-sheet .slalom-attempt-header-row,
       .slalom-sheet .slalom-attempt-value-row {{
@@ -4175,14 +4183,15 @@ def _page(title: str, content: str) -> str:
       }}
       .slalom-sheet .slalom-attempt-best th,
       .slalom-sheet .slalom-attempt-best td {{
-        background: #f5f9ee;
+        background: rgba(56, 105, 72, 0.07);
       }}
       .slalom-sheet .slalom-best-badge {{
         display: inline-block;
         font-size: 10px;
-        font-weight: 600;
-        color: #5d7b2c;
-        letter-spacing: 0.02em;
+        font-weight: 700;
+        color: var(--ok);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
       }}
       .slalom-sheet .slalom-attempt-header-row {{
         height: 38px;
@@ -4201,9 +4210,9 @@ def _page(title: str, content: str) -> str:
       .slalom-sheet select {{
         height: 28px;
         padding: 2px 6px;
-        background: #fff;
-        border: 1px solid #c0bbb3;
-        border-radius: 2px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0;
       }}
       .slalom-penalty-picker {{
         position: relative;
@@ -4212,9 +4221,9 @@ def _page(title: str, content: str) -> str:
         width: 100%;
         height: 28px;
         padding: 2px 6px;
-        border: 1px solid #c0bbb3;
-        border-radius: 2px;
-        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--surface);
         font: inherit;
         line-height: 1;
         text-align: center;
@@ -4227,8 +4236,8 @@ def _page(title: str, content: str) -> str:
         display: none;
         grid-template-columns: 1fr;
         min-width: 100%;
-        border: 1px solid #c0bbb3;
-        background: #fff;
+        border: 1px solid var(--line);
+        background: var(--surface);
         z-index: 5;
       }}
       .slalom-penalty-picker.open .slalom-penalty-menu {{
@@ -4236,12 +4245,15 @@ def _page(title: str, content: str) -> str:
       }}
       .slalom-penalty-option {{
         border: 0;
-        border-top: 1px solid #e2ddd5;
-        background: #fff;
+        border-top: 1px solid var(--line);
+        background: var(--surface);
         padding: 4px 6px;
         font: inherit;
         text-align: center;
         cursor: pointer;
+      }}
+      .slalom-penalty-option:hover {{
+        background: var(--panel);
       }}
       .slalom-penalty-option:first-child {{
         border-top: 0;
