@@ -2075,42 +2075,50 @@ class WebApp:
         query: dict[str, str],
     ) -> tuple[str, list[tuple[str, str]], str]:
         db_name = query.get("db", "")
-        def _doc_row(title: str, base_url: str) -> str:
+        def _doc_row(tag: str, title: str, base_url: str) -> str:
             return (
-                f'<li class="export-row">'
-                f'<span class="export-row-title">{title}</span>'
-                f'<span class="export-row-actions">'
-                f'<a href="{base_url}?db={escape(db_name)}">Просмотр</a>'
-                f'<a href="{base_url}/pdf?db={escape(db_name)}">PDF</a>'
-                f'<a href="{base_url}/xlsx?db={escape(db_name)}">Excel</a>'
-                f'</span></li>'
+                f'<div class="export-doc-row">'
+                f'<div><span class="export-doc-tag">{tag}</span>'
+                f'<span class="export-doc-title">{title}</span></div>'
+                f'<div class="export-doc-actions">'
+                f'<a class="export-action-view" href="{base_url}?db={escape(db_name)}">Просмотр</a>'
+                f'<a class="export-action-file" href="{base_url}/pdf?db={escape(db_name)}">PDF</a>'
+                f'<a class="export-action-file" href="{base_url}/xlsx?db={escape(db_name)}">XLSX</a>'
+                f'</div></div>'
             )
-        document_rows = "".join(
-            [
-                _doc_row("Итоговый протокол спринта", "/export/sprint-results"),
-                _doc_row("Итоговый протокол слалома", "/export/slalom-results"),
-                _doc_row("Итоговый протокол H2H", "/export/parallel-sprint-results"),
-                _doc_row("Итоговый протокол длинной гонки", "/export/long-race-results"),
-                _doc_row("Протокол многоборья", "/export/combined-results"),
-                '<li><span class="subtle">Судейский состав — скоро</span></li>',
-                '<li><span class="subtle">Стартовый протокол длинной гонки — скоро</span></li>',
-            ]
-        )
+        def _doc_row_pending(tag: str, title: str) -> str:
+            return (
+                f'<div class="export-doc-row export-doc-pending">'
+                f'<div><span class="export-doc-tag">{tag}</span>'
+                f'<span class="export-doc-title">{title}</span></div>'
+                f'<div class="export-doc-actions">'
+                f'<span class="export-coming-soon">В разработке</span>'
+                f'</div></div>'
+            )
+        document_rows = "".join([
+            _doc_row("Спринт",          "Итоговый протокол спринта",        "/export/sprint-results"),
+            _doc_row("Слалом",          "Итоговый протокол слалома",         "/export/slalom-results"),
+            _doc_row("Параллельный спринт", "Итоговый протокол H2H",         "/export/parallel-sprint-results"),
+            _doc_row("Длинная гонка",   "Итоговый протокол длинной гонки",   "/export/long-race-results"),
+            _doc_row("Многоборье",      "Протокол многоборья",               "/export/combined-results"),
+            _doc_row_pending("Судьи",          "Судейский состав"),
+            _doc_row_pending("Длинная гонка",  "Стартовый протокол длинной гонки"),
+        ])
         body = _page(
             "Протоколы",
             f"""
 <section class="panel-page">
   <div class="page-head">
     <div>
-      <p class="eyebrow">Протоколы</p>
+      <p class="eyebrow">Финализация</p>
       <h1>Протоколы</h1>
-      <p class="subtle">Реестр документов соревнования для проверки, печати и дальнейшего экспорта.</p>
+      <p class="subtle">Реестр документов для проверки, печати и экспорта.</p>
     </div>
     <a class="secondary-link" href="/dashboard?db={escape(db_name)}">Назад на рабочий стол</a>
   </div>
   <section class="panel-card">
-    <h2>Реестр документов</h2>
-    <ul class="compact-list roomy">{document_rows}</ul>
+    <p class="section-label" style="margin-bottom:16px;">Реестр документов</p>
+    <div class="export-registry">{document_rows}</div>
   </section>
 </section>
 """,
@@ -3859,6 +3867,74 @@ def _page(title: str, content: str) -> str:
       .compact-list.roomy li {{
         margin-bottom: 10px;
       }}
+      /* --- Export / Protocols page --- */
+      .export-registry {{
+        display: grid;
+        gap: 0;
+      }}
+      .export-doc-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }}
+      .export-doc-row:first-child {{ border-top: 1px solid var(--line); }}
+      .export-doc-pending .export-doc-title {{ opacity: 0.35; }}
+      .export-doc-tag {{
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.6;
+        margin-bottom: 3px;
+      }}
+      .export-doc-title {{
+        font-size: 17px;
+        font-weight: 700;
+        font-family: 'Newsreader', Georgia, serif;
+      }}
+      .export-doc-actions {{
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-shrink: 0;
+      }}
+      .export-action-view {{
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-decoration-color: var(--primary-bg);
+        text-underline-offset: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }}
+      .export-action-file {{
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        padding: 4px 10px;
+        text-decoration: none;
+        transition: background 0.12s;
+      }}
+      .export-action-file:hover {{ background: var(--panel2); }}
+      .export-coming-soon {{
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.4;
+        font-style: italic;
+      }}
+      /* legacy, kept for protocol view pages */
       .export-row {{
         display: flex;
         justify-content: space-between;
