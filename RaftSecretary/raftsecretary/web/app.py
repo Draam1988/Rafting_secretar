@@ -100,25 +100,35 @@ DISCIPLINE_LABELS = {
 }
 
 CATEGORY_OPTIONS = [
-    ("R4", "men", "U16", "R4 Мужчины U16"),
-    ("R4", "women", "U16", "R4 Женщины U16"),
-    ("R4", "men", "U20", "R4 Мужчины U20"),
-    ("R4", "women", "U20", "R4 Женщины U20"),
-    ("R4", "men", "U24", "R4 Мужчины U24"),
-    ("R4", "women", "U24", "R4 Женщины U24"),
-    ("R4", "men", "Cup", "R4 Кубок Мужчины"),
-    ("R4", "women", "Cup", "R4 Кубок Женщины"),
-    ("R4", "men", "Veterans", "R4 Ветераны Мужчины"),
+    # Взрослые (15+)
+    ("R4", "men",   "Open",     "R4 Мужчины"),
+    ("R4", "women", "Open",     "R4 Женщины"),
+    # Юниоры/юниорки до 24 лет (14–23)
+    ("R4", "men",   "U24",      "R4 Юниоры до 24 лет"),
+    ("R4", "women", "U24",      "R4 Юниорки до 24 лет"),
+    # Юниоры/юниорки до 20 лет (14–19)
+    ("R4", "men",   "U20",      "R4 Юниоры до 20 лет"),
+    ("R4", "women", "U20",      "R4 Юниорки до 20 лет"),
+    # Юноши/девушки до 16 лет (12–15)
+    ("R4", "men",   "U16",      "R4 Юноши до 16 лет"),
+    ("R4", "women", "U16",      "R4 Девушки до 16 лет"),
+    # Кубок / Ветераны (вне реестра правил, для внутренних соревнований)
+    ("R4", "men",   "Cup",      "R4 Кубок Мужчины"),
+    ("R4", "women", "Cup",      "R4 Кубок Женщины"),
+    ("R4", "men",   "Veterans", "R4 Ветераны Мужчины"),
     ("R4", "women", "Veterans", "R4 Ветераны Женщины"),
-    ("R6", "men", "U16", "R6 Мужчины U16"),
-    ("R6", "women", "U16", "R6 Женщины U16"),
-    ("R6", "men", "U20", "R6 Мужчины U20"),
-    ("R6", "women", "U20", "R6 Женщины U20"),
-    ("R6", "men", "U24", "R6 Мужчины U24"),
-    ("R6", "women", "U24", "R6 Женщины U24"),
-    ("R6", "men", "Cup", "R6 Кубок Мужчины"),
-    ("R6", "women", "Cup", "R6 Кубок Женщины"),
-    ("R6", "men", "Veterans", "R6 Ветераны Мужчины"),
+    # R6
+    ("R6", "men",   "Open",     "R6 Мужчины"),
+    ("R6", "women", "Open",     "R6 Женщины"),
+    ("R6", "men",   "U24",      "R6 Юниоры до 24 лет"),
+    ("R6", "women", "U24",      "R6 Юниорки до 24 лет"),
+    ("R6", "men",   "U20",      "R6 Юниоры до 20 лет"),
+    ("R6", "women", "U20",      "R6 Юниорки до 20 лет"),
+    ("R6", "men",   "U16",      "R6 Юноши до 16 лет"),
+    ("R6", "women", "U16",      "R6 Девушки до 16 лет"),
+    ("R6", "men",   "Cup",      "R6 Кубок Мужчины"),
+    ("R6", "women", "Cup",      "R6 Кубок Женщины"),
+    ("R6", "men",   "Veterans", "R6 Ветераны Мужчины"),
     ("R6", "women", "Veterans", "R6 Ветераны Женщины"),
 ]
 
@@ -454,7 +464,8 @@ class WebApp:
         settings = load_competition_settings(db_path)
         competition_days = settings.competition_dates or ([_first_competition_day(settings)] if _first_competition_day(settings) else [""])
         date_inputs = "".join(
-            f'<label>Дата <input name="competition_date_{index}" type="date" value="{escape(day)}" /></label>'
+            f'<div class="organizer-row"><label>Дата <input name="competition_date_{index}" type="date" value="{escape(day)}" /></label>'
+            f'<button type="button" class="remove-item-btn" onclick="this.closest(\'.organizer-row\').remove()" title="Удалить">×</button></div>'
             for index, day in enumerate(competition_days, start=1)
         )
         organizer_rows_src = settings.organizers if settings.organizers else ([settings.organizer] if settings.organizer else [""])
@@ -532,7 +543,7 @@ class WebApp:
             {date_inputs}
           </div>
           <template id="competition-day-template">
-            <label>Дата <input type="date" name="competition_date___INDEX__" /></label>
+            <div class="organizer-row"><label>Дата <input type="date" name="competition_date___INDEX__" /></label><button type="button" class="remove-item-btn" onclick="this.closest('.organizer-row').remove()" title="Удалить">×</button></div>
           </template>
         </div>
         <label>Описание <input name="description" value="{escape(settings.description)}" /></label>
@@ -6061,18 +6072,27 @@ def _has_any_long_race(db_path: Path, settings: CompetitionSettingsRecord) -> bo
 
 
 def _category_label(category: Category) -> str:
-    sex_label = {
-        "men": "Мужчины",
-        "women": "Женщины",
-    }.get(category.normalized_sex, category.normalized_sex)
-    age_label = {
-        "U16": "U16",
-        "U20": "U20",
-        "U24": "U24",
-        "Cup": "Кубок",
-        "Veterans": "Ветераны",
-    }.get(category.age_group, category.age_group)
-    return f"{category.boat_class} {sex_label} {age_label}"
+    sex = category.normalized_sex
+    age = category.age_group
+    label = {
+        ("men",   "Open"):     "Мужчины",
+        ("women", "Open"):     "Женщины",
+        ("men",   "U24"):      "Юниоры до 24 лет",
+        ("women", "U24"):      "Юниорки до 24 лет",
+        ("men",   "U20"):      "Юниоры до 20 лет",
+        ("women", "U20"):      "Юниорки до 20 лет",
+        ("men",   "U16"):      "Юноши до 16 лет",
+        ("women", "U16"):      "Девушки до 16 лет",
+        ("men",   "Cup"):      "Кубок Мужчины",
+        ("women", "Cup"):      "Кубок Женщины",
+        ("men",   "Veterans"): "Ветераны Мужчины",
+        ("women", "Veterans"): "Ветераны Женщины",
+    }.get((sex, age))
+    if label:
+        return f"{category.boat_class} {label}"
+    # fallback для нестандартных значений
+    sex_label = {"men": "Мужчины", "women": "Женщины"}.get(sex, sex)
+    return f"{category.boat_class} {sex_label} {age}"
 
 
 def create_app(data_dir: Path) -> WebApp:
