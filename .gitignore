@@ -13,3 +13,4 @@ RaftSecretary/data/*.db
 !RaftSecretary/data/.gitkeep
 RaftSecretary/exports/
 RaftSecretary/docs/plans/
+stitch_/
