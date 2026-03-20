@@ -249,14 +249,14 @@ class WebApp:
         archive_items = (
             "".join(
                 f"""
-<li class="archive-row">
-  <a href="/dashboard?db={escape(path.name)}">{escape(_display_competition_name(path.name))}</a>
-  <a class="delete-link" href="/competitions/delete?db={quote(path.name)}" aria-label="Удалить {escape(_display_competition_name(path.name))}">×</a>
-</li>
+<div class="ledger-row">
+  <a class="ledger-link" href="/dashboard?db={escape(path.name)}">{escape(_display_competition_name(path.name))}</a>
+  <a class="delete-link" href="/competitions/delete?db={quote(path.name)}">УДАЛИТЬ</a>
+</div>
 """
                 for path in db_files
             )
-            or "<li>Соревнований пока нет</li>"
+            or '<p style="padding:18px 16px; color:var(--muted); font-style:italic;">Соревнований пока нет</p>'
         )
         open_last_href = (
             f"/dashboard?db={escape(latest_db)}" if latest_db else "#"
@@ -264,44 +264,42 @@ class WebApp:
         body = _page(
             "RaftSecretary",
             f"""
-<section class="hero">
+<div class="index-hero">
   <div>
-    <p class="eyebrow">Федерация рафтинга Краснодарского края</p>
     <h1>RaftSecretary</h1>
-    <p class="subtle">Офлайн-инструмент секретаря соревнований по рафтингу.</p>
   </div>
-  <div class="meta">
-    <p><strong>Версия</strong> {APP_VERSION}</p>
-    <p><strong>Дата версии</strong> {VERSION_DATE}</p>
-    <p><strong>Автор</strong> {APP_AUTHOR}</p>
-    <div class="social-links">
-      <a class="icon-link" href="#" title="ВКонтакте">VK</a>
-      <a class="icon-link" href="#" title="Telegram">TG</a>
-      <a class="icon-link" href="/faq" title="F.A.Q.">F.A.Q.</a>
+  <div class="index-meta">
+    <span class="ver">{APP_VERSION} &middot; {VERSION_DATE}</span>
+    <span class="author">Автор: {APP_AUTHOR}</span>
+  </div>
+</div>
+<div class="index-open-last">
+  <a class="stitch-cta" href="{open_last_href}">Открыть последнее соревнование</a>
+</div>
+<div class="index-layout" style="margin-top:40px;">
+  <section>
+    <p class="section-label">Архив файлов соревнований</p>
+    <div class="ledger-archive">{archive_items}</div>
+  </section>
+  <section>
+    <div class="form-panel">
+      <h3>Новое соревнование</h3>
+      <form method="post" action="/competitions">
+        <div class="form-field">
+          <label for="filename">Имя файла (.db)</label>
+          <input id="filename" name="filename" class="editorial-input" placeholder="Введите название..." autocomplete="off" />
+        </div>
+        <button class="stitch-cta" type="submit" style="display:block; width:100%; text-align:center; padding:12px 0; background:var(--panel2); margin-bottom:0;">Создать файл</button>
+      </form>
+      <p class="form-hint">База данных будет создана в рабочем каталоге приложения.</p>
     </div>
-  </div>
-</section>
-<section class="actions-grid">
-  <div class="action-card">
-    <h2>Открыть соревнование</h2>
-    <p class="subtle">Открыть существующее соревнование из локального архива.</p>
-    <ul class="compact-list">{archive_items}</ul>
-  </div>
-  <div class="action-card">
-    <h2>Создать соревнование</h2>
-    <p class="subtle">Создать новый файл соревнования и перейти к настройке.</p>
-    <form method="post" action="/competitions" class="stack-form">
-      <label for="filename">Имя файла соревнования</label>
-      <input id="filename" name="filename" />
-      <button type="submit">Создать соревнование</button>
-    </form>
-  </div>
-  <div class="action-card">
-    <h2>Открыть последнее соревнование</h2>
-    <p class="subtle">Быстрый возврат к последнему редактируемому соревнованию.</p>
-    <a class="primary-link" href="{open_last_href}">Открыть последнее соревнование</a>
-  </div>
-</section>
+    <div style="margin-top:20px; display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="stitch-cta" href="/faq">F.A.Q.</a>
+      <a class="stitch-cta" href="#">VK</a>
+      <a class="stitch-cta" href="#">TG</a>
+    </div>
+  </section>
+</div>
 """,
         )
         return ("200 OK", [("Content-Type", "text/html; charset=utf-8")], body)
@@ -588,50 +586,43 @@ class WebApp:
     <div>
       <p class="eyebrow">Судьи</p>
       <h1>Судейский состав</h1>
-      <p class="subtle">Обязательные роли и остальной судейский состав соревнований.</p>
+      <p class="subtle">Реестр официальных лиц соревнований.</p>
     </div>
-    <a class="secondary-link" href="/dashboard?db={escape(db_name)}">Назад на рабочий стол</a>
+    <a class="stitch-cta" href="/dashboard?db={escape(db_name)}">Назад на рабочий стол</a>
   </div>
-  <div class="panel-grid">
-    <section class="panel-card">
-      <div class="section-head">
-        <div>
-          <h2>Обязательные роли</h2>
-          <p class="subtle">Без этих данных нельзя считать судейский состав заполненным.</p>
+  <div class="panel-card" style="margin-top:4px;">
+    <form method="post" action="/judges/save">
+      <input type="hidden" name="db" value="{escape(db_name)}" />
+      <div class="judges-section">
+        <div class="judges-section-head">
+          <h2>Ключевые позиции</h2>
+          <span class="judges-section-note">обязательно для заполнения &nbsp; <span class="status-pill {status}">{escape(detail)}</span></span>
         </div>
-        <span class="status-pill {status}">{escape(detail)}</span>
-      </div>
-      <form method="post" action="/judges/save" class="stack-form">
-        <input type="hidden" name="db" value="{escape(db_name)}" />
-        <div class="judge-grid">
+        <div class="judges-required-grid">
           {role_cards}
         </div>
-        <div class="section-head">
-          <div>
-            <h2>Остальные судьи</h2>
-            <p class="subtle">Добавляйте судей по мере необходимости. Пустые карточки не сохраняются.</p>
-          </div>
-          <button type="button" class="secondary-link card-button" onclick="addJudgeCard()">Добавить судью</button>
+      </div>
+      <div class="judges-section">
+        <div class="judges-section-head">
+          <h2>Судейская коллегия</h2>
+          <span class="judges-section-note">дополнительные члены</span>
         </div>
-        <div id="judges-list" class="judge-grid">
+        <div id="judges-list" class="judges-extra-list">
           {judge_cards_html}
         </div>
         <template id="judge-card-template">
           {_judge_card("__INDEX__", JudgeRecord("", "", "", ""))}
         </template>
-        <button type="submit">Сохранить судейский состав</button>
-      </form>
-    </section>
-    <section class="panel-card">
-      <h2>Текущее состояние</h2>
-      <dl class="info-list">
-        <div><dt>Статус</dt><dd>{escape(detail)}</dd></div>
-        <div><dt>Главный судья</dt><dd>{escape(_judge_full_name(record.chief_judge) or "Не заполнено")}</dd></div>
-        <div><dt>Главный секретарь</dt><dd>{escape(_judge_full_name(record.chief_secretary) or "Не заполнено")}</dd></div>
-        <div><dt>Начальник дистанции</dt><dd>{escape(_judge_full_name(record.course_chief) or "Не заполнено")}</dd></div>
-        <div><dt>Остальные судьи</dt><dd>{("<br />".join(escape(_judge_full_name(judge) or "Не заполнено") for judge in record.judges) or "Не заполнено")}</dd></div>
-      </dl>
-    </section>
+        <button type="button" class="judges-add-btn" onclick="addJudgeCard()">+ Добавить судью</button>
+      </div>
+      <div class="judges-footer">
+        <div class="judges-status-line">
+          <span class="judges-status-dot"></span>
+          <span>Локальное хранилище · офлайн режим</span>
+        </div>
+        <button type="submit" class="stitch-save-btn">Сохранить судейский состав</button>
+      </div>
+    </form>
   </div>
 </section>
 """,
@@ -744,14 +735,25 @@ class WebApp:
         <h2>Категории</h2>
         <ul class="compact-list">{available_categories}</ul>
       </div>
+    </div>
+    <div class="sprint-draw-card">
+      <p class="section-label" style="margin-bottom:16px;">Жеребьёвка</p>
       <form method="post" action="/sprint/draw">
         <input type="hidden" name="db" value="{escape(db_name)}" />
         <input type="hidden" name="category_key" value="{escape(category_key)}" />
-        <div class="team-actions">
-          <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
-          <label>Интервал <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" /></label>
-          <button type="submit" class="inline-action">Провести жеребьевку</button>
-          <button type="submit" class="secondary-link inline-action" name="redraw" value="1">Пережеребить</button>
+        <div class="sprint-draw-grid">
+          <div class="draw-field">
+            <span>Время первого старта</span>
+            <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" />
+          </div>
+          <div class="draw-field">
+            <span>Интервал</span>
+            <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" />
+          </div>
+          <div class="draw-actions">
+            <button type="submit" class="stitch-cta">Провести жеребьевку</button>
+            <button type="submit" class="stitch-cta" name="redraw" value="1">Пережеребить</button>
+          </div>
         </div>
       </form>
     </div>
@@ -775,8 +777,10 @@ class WebApp:
         </thead>
         <tbody>{rows}</tbody>
       </table>
-      <p class="order-conflict-hint">Исправьте дублирующиеся номера старта перед сохранением</p>
-      <button type="submit">Сохранить результаты спринта</button>
+      <div class="sprint-footer">
+        <p class="order-conflict-hint" style="margin:0;">Исправьте дублирующиеся номера старта перед сохранением</p>
+        <button type="submit" class="stitch-save-btn">Сохранить протокол спринта</button>
+      </div>
     </form>
   </section>
 </section>
@@ -1156,7 +1160,7 @@ class WebApp:
         <input type="hidden" name="category_key" value="{escape(category_key)}" />
         <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
         <label>Интервал <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" /></label>
-        <button type="submit" class="inline-action">Сформировать старт</button>
+        <button type="submit" class="stitch-cta">Сформировать старт</button>
       </form>
       <form method="post" action="/parallel-sprint/clear" class="team-actions" onsubmit="return confirm('Очистить весь протокол H2H для этой категории?');">
         <input type="hidden" name="db" value="{escape(db_name)}" />
@@ -1175,7 +1179,7 @@ class WebApp:
           <input type="hidden" name="db" value="{escape(db_name)}" />
           <input type="hidden" name="category_key" value="{escape(category_key)}" />
           <div class="h2h-column-body">{start_nodes}</div>
-          <button type="submit">Сохранить стартовый список H2H</button>
+          <button type="submit" class="stitch-save-btn">Сохранить стартовый список H2H</button>
         </form>
       </section>
       {columns}
@@ -3196,7 +3200,7 @@ def _parallel_sprint_heat_card_html(
       </select>
     </label>
     <span class="subtle">Победитель: {escape(winner_text)}</span>
-    <button type="submit"{disabled_form}>Сохранить заезд</button>
+    <button type="submit" class="stitch-save-btn"{disabled_form}>Сохранить заезд</button>
   </div>
 </form>
 """
@@ -3342,17 +3346,24 @@ def _page(title: str, content: str) -> str:
 <html lang="ru">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <title>{escape(title)}</title>
     <style>
       :root {{
-        --bg: #f3f1eb;
-        --panel: #fffdf8;
-        --line: #d8d0c1;
-        --text: #191814;
-        --muted: #6e675c;
-        --ok: #497a58;
+        --bg: #fbf9f3;
+        --panel: #f5f4ec;
+        --panel2: #efeee5;
+        --line: rgba(177,179,167,0.4);
+        --line2: rgba(177,179,167,0.15);
+        --text: #31332b;
+        --muted: #5e6056;
+        --ok: #386948;
         --warn: #c78a16;
-        --danger: #9b4b43;
+        --danger: #9e422c;
+        --primary: #645d53;
+        --primary-bg: #ebe1d3;
       }}
       * {{ box-sizing: border-box; }}
       #save-toast {{
@@ -3377,16 +3388,18 @@ def _page(title: str, content: str) -> str:
       }}
       body {{
         margin: 0;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: 'Noto Serif', Georgia, serif;
         color: var(--text);
-        background: linear-gradient(180deg, #efece4 0%, #f7f5ef 100%);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
       }}
       main {{
         max-width: 1180px;
         margin: 0 auto;
         padding: 32px 24px 56px;
       }}
-      h1, h2, p {{ margin: 0; }}
+      h1, h2, h3, p {{ margin: 0; }}
+      h1, h2, h3 {{ font-family: 'Newsreader', Georgia, serif; }}
       .hero {{
         display: flex;
         justify-content: space-between;
@@ -3394,8 +3407,8 @@ def _page(title: str, content: str) -> str:
         align-items: flex-start;
         margin-bottom: 24px;
         padding: 24px;
-        background: rgba(255, 253, 248, 0.88);
-        border: 1px solid var(--line);
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
       }}
       .hero.compact {{ margin-bottom: 18px; }}
       .eyebrow {{
@@ -3599,8 +3612,8 @@ def _page(title: str, content: str) -> str:
         gap: 16px;
         align-items: flex-start;
         padding: 20px 22px;
-        border: 1px solid var(--line);
-        background: rgba(255, 253, 248, 0.88);
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
       }}
       .panel-grid {{
         display: grid;
@@ -3741,7 +3754,8 @@ def _page(title: str, content: str) -> str:
       }}
       .h2h-heat-card {{
         border: 0;
-        background: transparent;
+        border-left: 4px solid var(--muted);
+        background: var(--panel);
         padding: 0;
         display: grid;
         gap: 6px;
@@ -3754,7 +3768,7 @@ def _page(title: str, content: str) -> str:
         right: -24px;
         top: 50%;
         width: 24px;
-        border-top: 1px solid #2b2b2b;
+        border-top: 1px solid var(--muted);
         pointer-events: none;
       }}
       .h2h-column:last-child .h2h-heat-card::after {{
@@ -3772,10 +3786,21 @@ def _page(title: str, content: str) -> str:
         min-height: 24px;
         font-size: 12px;
         color: var(--muted);
+        padding: 6px 10px 2px;
+      }}
+      .h2h-heat-head strong {{
+        background: var(--primary);
+        color: var(--panel);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        display: inline-block;
       }}
       .h2h-heat-footer {{
         align-items: end;
-        padding-left: 132px;
+        padding: 4px 10px 8px;
       }}
       .h2h-heat-grid {{
         display: grid;
@@ -3784,8 +3809,8 @@ def _page(title: str, content: str) -> str:
       .h2h-row {{
         display: grid;
         grid-template-columns: 104px 66px 210px 106px;
-        border: 1px solid #1f1f1f;
-        background: #fff;
+        border: 1px solid var(--line);
+        background: var(--surface);
       }}
       .h2h-row + .h2h-row {{
         border-top: 0;
@@ -3795,18 +3820,23 @@ def _page(title: str, content: str) -> str:
       }}
       .h2h-row.winner {{
         border-color: var(--ok);
-        background: #f2faf2;
+        background: var(--panel);
+      }}
+      .h2h-row.winner .h2h-team-name {{
+        color: var(--ok);
+      }}
+      .h2h-row.winner .h2h-time-total {{
+        color: var(--ok);
       }}
       .h2h-row.loser {{
-        border-color: #c98d8d;
-        background: #fff1f1;
+        opacity: 0.55;
       }}
       .h2h-start-cell,
       .h2h-no-cell,
       .h2h-main-cell,
       .h2h-time-cell {{
         padding: 6px 8px;
-        border-right: 1px solid #1f1f1f;
+        border-right: 1px solid var(--line);
       }}
       .h2h-time-cell {{
         border-right: 0;
@@ -3895,11 +3925,17 @@ def _page(title: str, content: str) -> str:
         width: 100%;
       }}
       .h2h-column > h2 {{
-        font-size: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+        font-family: 'Noto Serif', Georgia, serif;
         position: sticky;
         top: 0;
         background: var(--bg);
-        padding-bottom: 4px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
         z-index: 1;
       }}
       .h2h-column > .compact-head {{
@@ -3907,12 +3943,18 @@ def _page(title: str, content: str) -> str:
         top: 0;
         background: var(--bg);
         z-index: 1;
-        padding-bottom: 4px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
         align-items: center;
       }}
       .h2h-column > .compact-head h2 {{
         margin: 0;
-        font-size: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+        font-family: 'Noto Serif', Georgia, serif;
       }}
       .protocol-table {{
         width: 100%;
@@ -3927,8 +3969,13 @@ def _page(title: str, content: str) -> str:
       }}
       .protocol-table th {{
         text-align: left;
-        font-size: 14px;
-        background: #f6f1e7;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: var(--panel2);
+        color: var(--muted);
+        border-bottom: 2px solid var(--line);
       }}
       .protocol-table input,
       .protocol-table select {{
@@ -4232,8 +4279,8 @@ def _page(title: str, content: str) -> str:
         display: grid;
         grid-template-columns: 104px 382px;
         width: 486px;
-        border: 1px solid #2b2b2b;
-        background: #fff;
+        border: 1px solid var(--line);
+        background: var(--surface);
         box-sizing: border-box;
         overflow: hidden;
       }}
@@ -4242,8 +4289,8 @@ def _page(title: str, content: str) -> str:
         align-content: center;
         gap: 6px;
         padding: 6px 8px;
-        border-right: 1px solid #2b2b2b;
-        background: #fff;
+        border-right: 1px solid var(--line);
+        background: var(--panel);
       }}
       .h2h-start-node-time .subtle {{
         font-size: 12px;
@@ -4262,18 +4309,18 @@ def _page(title: str, content: str) -> str:
         display: grid;
         grid-template-columns: 66px minmax(0, 1fr);
         min-width: 0;
-        border-bottom: 1px solid #2b2b2b;
+        border-bottom: 1px solid var(--line);
       }}
       .h2h-start-node-number,
       .h2h-start-node-name {{
         padding: 6px 8px;
-        background: #fff;
+        background: var(--surface);
       }}
       .h2h-start-node-number {{
         display: flex;
         align-items: center;
         justify-content: center;
-        border-right: 1px solid #2b2b2b;
+        border-right: 1px solid var(--line);
         font-weight: 700;
       }}
       .h2h-start-node-name {{
@@ -4688,6 +4735,386 @@ def _page(title: str, content: str) -> str:
         background: var(--danger);
         border-color: var(--danger);
       }}
+      /* ── Judges page ──────────────────────────────────── */
+      .judges-section {{
+        margin-bottom: 36px;
+      }}
+      .judges-section-head {{
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+        margin-bottom: 24px;
+      }}
+      .judges-section-head h2 {{
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--primary);
+      }}
+      .judges-section-note {{
+        font-size: 12px;
+        font-style: italic;
+        color: var(--muted);
+      }}
+      .judges-required-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 32px;
+      }}
+      .judges-role-card {{
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }}
+      .judges-role-tag {{
+        display: inline-block;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        font-weight: 700;
+        background: var(--primary-bg);
+        color: var(--primary);
+        padding: 4px 8px;
+      }}
+      .judge-field {{
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }}
+      .judge-field label {{
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+        cursor: pointer;
+      }}
+      .judge-field input,
+      .judge-field select {{
+        width: 100%;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--line);
+        padding: 4px 0;
+        font-family: 'Noto Serif', Georgia, serif;
+        font-size: 15px;
+        color: var(--text);
+        border-radius: 0;
+      }}
+      .judge-field input:focus,
+      .judge-field select:focus {{
+        outline: none;
+        border-bottom: 2px solid var(--primary);
+      }}
+      .judges-extra-list {{
+        display: grid;
+        gap: 0;
+        margin-bottom: 16px;
+      }}
+      .judges-extra-row {{
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr auto;
+        gap: 16px;
+        align-items: end;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line2);
+      }}
+      .judges-extra-row .judge-field {{
+        gap: 4px;
+      }}
+      .judges-remove-btn {{
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 4px 0;
+        width: auto;
+        opacity: 0.4;
+        align-self: end;
+        padding-bottom: 6px;
+      }}
+      .judges-extra-row:hover .judges-remove-btn {{ opacity: 1; color: var(--danger); }}
+      .judges-add-btn {{
+        width: 100%;
+        background: transparent;
+        border: 2px dashed var(--line);
+        color: var(--muted);
+        font-family: 'Noto Serif', Georgia, serif;
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        font-weight: 700;
+        padding: 16px;
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+      }}
+      .judges-add-btn:hover {{
+        border-color: var(--ok);
+        color: var(--ok);
+        background: transparent;
+      }}
+      .judges-footer {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-top: 2px solid var(--primary-bg);
+        padding-top: 24px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }}
+      .judges-status-line {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }}
+      .judges-status-dot {{
+        width: 10px;
+        height: 10px;
+        background: var(--ok);
+        flex-shrink: 0;
+      }}
+      /* ─────────────────────────────────────────────────── */
+      /* ── Stitch editorial styles ───────────────────────── */
+      .stitch-cta {{
+        display: inline-block;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary-bg);
+        padding: 4px 0;
+        background: transparent;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        cursor: pointer;
+        width: auto;
+        transition: background 0.15s, padding 0.15s;
+      }}
+      .stitch-cta:hover {{
+        background: var(--primary-bg);
+        padding: 4px 8px;
+      }}
+      .stitch-save-btn {{
+        background: var(--ok);
+        color: #fff;
+        border: none;
+        font-family: 'Noto Serif', Georgia, serif;
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        padding: 14px 36px;
+        width: auto;
+        cursor: pointer;
+        transition: filter 0.15s;
+      }}
+      .stitch-save-btn:hover {{ filter: brightness(0.93); }}
+      .stitch-save-btn:disabled {{
+        background: var(--muted);
+        cursor: not-allowed;
+        filter: none;
+      }}
+      .ledger-archive {{ border-top: 1px solid var(--line); }}
+      .ledger-row {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 16px;
+        border-bottom: 1px solid var(--line2);
+        transition: background 0.12s;
+      }}
+      .ledger-row:nth-child(even) {{ background: var(--panel); }}
+      .ledger-row:hover {{ background: var(--panel2); }}
+      .ledger-row .ledger-link {{
+        font-size: 18px;
+        text-decoration: none;
+        color: var(--text);
+        flex: 1;
+        font-family: 'Newsreader', Georgia, serif;
+      }}
+      .ledger-row .ledger-link:hover {{ color: var(--primary); }}
+      .ledger-row .delete-link {{
+        opacity: 0;
+        transition: opacity 0.15s;
+        border: none;
+        background: none;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--danger);
+        text-decoration: none;
+        padding: 4px 0;
+        width: auto;
+        cursor: pointer;
+      }}
+      .ledger-row:hover .delete-link {{ opacity: 1; }}
+      .index-hero {{
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 32px;
+        margin-bottom: 48px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 24px;
+        flex-wrap: wrap;
+      }}
+      .index-hero h1 {{
+        font-size: 80px;
+        line-height: 0.9;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }}
+      .index-meta {{ text-align: right; padding-bottom: 8px; }}
+      .index-meta .ver {{
+        display: block;
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }}
+      .index-meta .author {{
+        display: block;
+        font-size: 13px;
+        font-style: italic;
+        color: var(--primary);
+      }}
+      .index-open-last {{ margin-top: 20px; }}
+      .index-layout {{
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }}
+      @media (min-width: 760px) {{
+        .index-layout {{ grid-template-columns: 2fr 1fr; }}
+      }}
+      .section-label {{
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+        margin-bottom: 24px;
+      }}
+      .form-panel {{
+        background: var(--panel);
+        padding: 28px;
+        position: sticky;
+        top: 24px;
+      }}
+      .form-panel h3 {{
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+        margin-bottom: 28px;
+      }}
+      .form-field {{
+        margin-bottom: 28px;
+      }}
+      .form-field label {{
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+        font-weight: 700;
+      }}
+      .editorial-input {{
+        width: 100%;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--line);
+        padding: 6px 0;
+        font-family: 'Noto Serif', Georgia, serif;
+        font-size: 16px;
+        color: var(--text);
+        border-radius: 0;
+        box-shadow: none;
+        outline: none;
+      }}
+      .editorial-input:focus {{
+        border-bottom: 2px solid var(--primary);
+      }}
+      .form-hint {{
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line2);
+        font-size: 13px;
+        color: var(--muted);
+        font-style: italic;
+        line-height: 1.5;
+      }}
+      .sprint-draw-card {{
+        background: var(--panel);
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 4px;
+      }}
+      .sprint-draw-grid {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px 32px;
+        align-items: flex-end;
+      }}
+      .draw-field {{
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }}
+      .draw-field span {{
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }}
+      .draw-field input {{
+        width: 110px;
+        font-size: 16px;
+        padding: 4px 0;
+        border: none;
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+        font-family: 'Newsreader', Georgia, serif;
+      }}
+      .draw-field input:focus {{
+        outline: none;
+        border-bottom: 2px solid var(--primary);
+      }}
+      .draw-actions {{
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+      }}
+      .sprint-footer {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding-top: 20px;
+        flex-wrap: wrap;
+      }}
+      /* ─────────────────────────────────────────────────── */
       @media (max-width: 760px) {{
         h1 {{ font-size: 38px; }}
         .hero {{ flex-direction: column; }}
@@ -5241,29 +5668,49 @@ def _status_label(status: str) -> str:
 
 def _required_judge_card(title: str, prefix: str, judge: RequiredJudgeRecord) -> str:
     return f"""
-<section class="judge-card">
-  <h3>{escape(title)}</h3>
-  <div class="judge-card-grid">
-    <label>Фамилия <input name="{prefix}_last_name" value="{escape(judge.last_name)}" /></label>
-    <label>Имя <input name="{prefix}_first_name" value="{escape(judge.first_name)}" /></label>
-    <label>Отчество <input name="{prefix}_patronymic" value="{escape(judge.patronymic)}" /></label>
-    <label>Категория {_judge_category_select(f"{prefix}_category", judge.category)}</label>
+<div class="judges-role-card">
+  <span class="judges-role-tag">{escape(title)}</span>
+  <div class="judge-field">
+    <label for="{prefix}_last_name">Фамилия</label>
+    <input id="{prefix}_last_name" name="{prefix}_last_name" value="{escape(judge.last_name)}" placeholder="Фамилия" />
   </div>
-</section>
+  <div class="judge-field">
+    <label for="{prefix}_first_name">Имя</label>
+    <input id="{prefix}_first_name" name="{prefix}_first_name" value="{escape(judge.first_name)}" placeholder="Имя" />
+  </div>
+  <div class="judge-field">
+    <label for="{prefix}_patronymic">Отчество</label>
+    <input id="{prefix}_patronymic" name="{prefix}_patronymic" value="{escape(judge.patronymic)}" placeholder="Отчество" />
+  </div>
+  <div class="judge-field">
+    <label for="{prefix}_category">Категория</label>
+    {_judge_category_select(f"{prefix}_category", judge.category)}
+  </div>
+</div>
 """
 
 
 def _judge_card(index: int | str, judge: JudgeRecord) -> str:
     return f"""
-<section class="judge-card">
-  <h3>Судья {index}</h3>
-  <div class="judge-card-grid">
-    <label>Фамилия <input name="judge_{index}_last_name" value="{escape(judge.last_name)}" /></label>
-    <label>Имя <input name="judge_{index}_first_name" value="{escape(judge.first_name)}" /></label>
-    <label>Отчество <input name="judge_{index}_patronymic" value="{escape(judge.patronymic)}" /></label>
-    <label>Категория {_judge_category_select(f"judge_{index}_category", judge.category)}</label>
+<div class="judges-extra-row">
+  <div class="judge-field">
+    <label>Фамилия</label>
+    <input name="judge_{index}_last_name" value="{escape(judge.last_name)}" placeholder="Фамилия" />
   </div>
-</section>
+  <div class="judge-field">
+    <label>Имя</label>
+    <input name="judge_{index}_first_name" value="{escape(judge.first_name)}" placeholder="Имя" />
+  </div>
+  <div class="judge-field">
+    <label>Отчество</label>
+    <input name="judge_{index}_patronymic" value="{escape(judge.patronymic)}" placeholder="Отчество" />
+  </div>
+  <div class="judge-field">
+    <label>Категория</label>
+    {_judge_category_select(f"judge_{index}_category", judge.category)}
+  </div>
+  <button type="button" class="judges-remove-btn" onclick="this.closest('.judges-extra-row').remove()">УБРАТЬ</button>
+</div>
 """
 
 
