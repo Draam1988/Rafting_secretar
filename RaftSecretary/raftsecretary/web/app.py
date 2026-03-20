@@ -505,14 +505,13 @@ class WebApp:
   </div>
   <div class="panel-grid">
     <section class="panel-card">
-      <h2>Основные данные</h2>
       <form method="post" action="/settings/save" class="stack-form">
         <input type="hidden" name="db" value="{escape(db_name)}" />
         <label>Название <input name="name" value="{escape(settings.name)}" /></label>
         <div class="date-stack">
           <div class="section-head compact-head">
             <label>Организаторы</label>
-            <button type="button" class="secondary-link card-button" onclick="addOrganizer()">+ Добавить</button>
+            <button type="button" class="tc-add-link" onclick="addOrganizer()">+ Добавить</button>
           </div>
           <div id="organizers-list">
             {organizer_inputs}
@@ -527,7 +526,7 @@ class WebApp:
             <div>
               <label>Даты соревнований</label>
             </div>
-            <button type="button" class="secondary-link card-button" onclick="addCompetitionDay()">+ Добавить день</button>
+            <button type="button" class="tc-add-link" onclick="addCompetitionDay()">+ Добавить день</button>
           </div>
           <div id="competition-days" class="date-stack">
             {date_inputs}
@@ -546,11 +545,13 @@ class WebApp:
           <summary>Категории <span class="summary-note">{category_summary}</span></summary>
           <div class="options-grid">{category_controls}</div>
         </details>
-        <button type="submit">Сохранить настройки</button>
+        <div class="sprint-footer">
+          <button type="submit" class="stitch-save-btn">Сохранить настройки</button>
+        </div>
       </form>
     </section>
-    <section class="panel-card">
-      <h2>Текущее состояние</h2>
+    <section class="panel-card" style="background:var(--panel2); border-color:var(--line); position:sticky; top:20px;">
+      <p class="section-label" style="margin-bottom:14px;">Текущее состояние</p>
       <dl class="info-list">
         <div><dt>Название</dt><dd>{escape(settings.name or "Не указано")}</dd></div>
         <div><dt>Организатор</dt><dd>{escape(settings.organizer or "Не указан")}</dd></div>
@@ -3880,8 +3881,12 @@ def _page(title: str, content: str) -> str:
       }}
       .panel-grid {{
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 16px;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        align-items: start;
+      }}
+      @media (max-width: 860px) {{
+        .panel-grid {{ grid-template-columns: 1fr; }}
       }}
       .panel-card {{
         background: var(--panel);
@@ -3902,9 +3907,11 @@ def _page(title: str, content: str) -> str:
       .inner-block {{
         display: grid;
         gap: 10px;
-        padding: 14px;
-        border: 1px solid #e7dfd0;
-        background: #fcfaf5;
+        padding: 0;
+        border: none;
+        background: transparent;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
       }}
       .inner-block summary {{
         cursor: pointer;
@@ -3937,14 +3944,15 @@ def _page(title: str, content: str) -> str:
         display: flex;
         align-items: center;
         gap: 10px;
-        width: 100%;
-        padding: 8px 10px;
-        border: 1px solid #e7dfd0;
-        background: #fff;
+        padding: 5px 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
       }}
       .option-row input {{
         width: auto;
         margin: 0;
+        accent-color: var(--ok);
       }}
       .info-list {{
         display: grid;
@@ -3954,7 +3962,7 @@ def _page(title: str, content: str) -> str:
         display: grid;
         gap: 4px;
         padding-bottom: 10px;
-        border-bottom: 1px solid #e7dfd0;
+        border-bottom: 1px solid var(--line);
       }}
       .info-list dt {{
         font-size: 12px;
