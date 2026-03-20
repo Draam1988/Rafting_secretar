@@ -3754,8 +3754,7 @@ def _page(title: str, content: str) -> str:
       }}
       .h2h-heat-card {{
         border: 0;
-        border-left: 4px solid var(--muted);
-        background: var(--panel);
+        background: transparent;
         padding: 0;
         display: grid;
         gap: 6px;
@@ -3768,7 +3767,7 @@ def _page(title: str, content: str) -> str:
         right: -24px;
         top: 50%;
         width: 24px;
-        border-top: 1px solid var(--muted);
+        border-top: 1px solid #2b2b2b;
         pointer-events: none;
       }}
       .h2h-column:last-child .h2h-heat-card::after {{
@@ -3786,21 +3785,10 @@ def _page(title: str, content: str) -> str:
         min-height: 24px;
         font-size: 12px;
         color: var(--muted);
-        padding: 6px 10px 2px;
-      }}
-      .h2h-heat-head strong {{
-        background: var(--primary);
-        color: var(--panel);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        padding: 2px 8px;
-        display: inline-block;
       }}
       .h2h-heat-footer {{
         align-items: end;
-        padding: 4px 10px 8px;
+        padding-left: 132px;
       }}
       .h2h-heat-grid {{
         display: grid;
@@ -3809,8 +3797,8 @@ def _page(title: str, content: str) -> str:
       .h2h-row {{
         display: grid;
         grid-template-columns: 104px 66px 210px 106px;
-        border: 1px solid var(--line);
-        background: var(--surface);
+        border: 1px solid #1f1f1f;
+        background: #fff;
       }}
       .h2h-row + .h2h-row {{
         border-top: 0;
@@ -3820,7 +3808,7 @@ def _page(title: str, content: str) -> str:
       }}
       .h2h-row.winner {{
         border-color: var(--ok);
-        background: var(--panel);
+        background: #f2faf2;
       }}
       .h2h-row.winner .h2h-team-name {{
         color: var(--ok);
@@ -3829,7 +3817,8 @@ def _page(title: str, content: str) -> str:
         color: var(--ok);
       }}
       .h2h-row.loser {{
-        opacity: 0.75;
+        border-color: #c98d8d;
+        background: #fff1f1;
       }}
       .h2h-row.loser .h2h-team-name {{
         color: var(--danger);
@@ -3842,7 +3831,7 @@ def _page(title: str, content: str) -> str:
       .h2h-main-cell,
       .h2h-time-cell {{
         padding: 6px 8px;
-        border-right: 1px solid var(--line);
+        border-right: 1px solid #1f1f1f;
       }}
       .h2h-time-cell {{
         border-right: 0;
@@ -3931,17 +3920,11 @@ def _page(title: str, content: str) -> str:
         width: 100%;
       }}
       .h2h-column > h2 {{
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: var(--muted);
-        font-family: 'Noto Serif', Georgia, serif;
+        font-size: 20px;
         position: sticky;
         top: 0;
         background: var(--bg);
-        padding-bottom: 8px;
-        border-bottom: 1px solid var(--line);
+        padding-bottom: 4px;
         z-index: 1;
       }}
       .h2h-column > .compact-head {{
@@ -3949,18 +3932,12 @@ def _page(title: str, content: str) -> str:
         top: 0;
         background: var(--bg);
         z-index: 1;
-        padding-bottom: 8px;
-        border-bottom: 1px solid var(--line);
+        padding-bottom: 4px;
         align-items: center;
       }}
       .h2h-column > .compact-head h2 {{
         margin: 0;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: var(--muted);
-        font-family: 'Noto Serif', Georgia, serif;
+        font-size: 20px;
       }}
       .protocol-table {{
         width: 100%;
@@ -4285,8 +4262,8 @@ def _page(title: str, content: str) -> str:
         display: grid;
         grid-template-columns: 104px 382px;
         width: 486px;
-        border: 1px solid var(--line);
-        background: var(--surface);
+        border: 1px solid #2b2b2b;
+        background: #fff;
         box-sizing: border-box;
         overflow: hidden;
       }}
@@ -4295,8 +4272,8 @@ def _page(title: str, content: str) -> str:
         align-content: center;
         gap: 6px;
         padding: 6px 8px;
-        border-right: 1px solid var(--line);
-        background: var(--panel);
+        border-right: 1px solid #2b2b2b;
+        background: #fff;
       }}
       .h2h-start-node-time .subtle {{
         font-size: 12px;
@@ -4315,18 +4292,18 @@ def _page(title: str, content: str) -> str:
         display: grid;
         grid-template-columns: 66px minmax(0, 1fr);
         min-width: 0;
-        border-bottom: 1px solid var(--line);
+        border-bottom: 1px solid #2b2b2b;
       }}
       .h2h-start-node-number,
       .h2h-start-node-name {{
         padding: 6px 8px;
-        background: var(--surface);
+        background: #fff;
       }}
       .h2h-start-node-number {{
         display: flex;
         align-items: center;
         justify-content: center;
-        border-right: 1px solid var(--line);
+        border-right: 1px solid #2b2b2b;
         font-weight: 700;
       }}
       .h2h-start-node-name {{
