@@ -9,4 +9,5 @@ exports/
 data/*.db
 !data/.gitkeep
 UI_MAP.md
+errors.log
 
