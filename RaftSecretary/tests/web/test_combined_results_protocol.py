@@ -142,7 +142,7 @@ def test_combined_results_protocol_renders_one_page_category_table(tmp_path: Pat
 
     assert status == "200 OK"
     assert "Протокол многоборья" in body
-    assert "R4 Мужчины U16" in body
+    assert "R4 Юноши до 16 лет" in body
     assert "Спринт" in body
     assert "H2H" in body
     assert "Слалом" in body

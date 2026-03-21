@@ -182,7 +182,7 @@ def test_parallel_sprint_results_protocol_renders_places_points_and_active_lineu
     assert status == "200 OK"
     assert "Итоговый протокол" in body
     assert "Дисциплина: H2H" in body
-    assert "R4 Мужчины U16" in body
+    assert "R4 Юноши до 16 лет" in body
     assert "Федерация рафтинга России" in body
     assert "Главный судья" in body
     assert "Иванов Илья, 2011, Б/Р<br />Петров Данил, 2012, 1 юношеский<br />Егоров Егор, 2014, 3 разряд<br />Запасной Артем, 2012, Б/Р" in body

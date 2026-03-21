@@ -17,7 +17,7 @@ def test_save_and_load_competition_settings(tmp_path: Path) -> None:
         name="Moscow Championship",
         competition_date="2026-04-01",
         description="River event",
-        organizer="Minsport",
+        organizers=["Minsport"],
         venue="Moscow River",
         enabled_disciplines=["sprint", "slalom"],
         categories=[

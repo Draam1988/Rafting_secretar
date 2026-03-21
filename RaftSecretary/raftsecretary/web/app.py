@@ -136,6 +136,7 @@ CATEGORY_OPTIONS = [
 @dataclass
 class WebApp:
     data_dir: Path
+    log_file: Path | None = None
 
     def handle(
         self,
@@ -251,7 +252,14 @@ class WebApp:
             return self._create_competition_response(form_data or {})
         if method == "POST" and route_path == "/competitions/delete":
             return self._delete_competition_response(form_data or {})
+        if method == "GET" and route_path == "/clear-error-log":
+            return self._clear_error_log_response()
         return ("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")], "Not found")
+
+    def _clear_error_log_response(self) -> tuple[str, list[tuple[str, str]], str]:
+        if self.log_file and self.log_file.exists():
+            self.log_file.write_text("", encoding="utf-8")
+        return ("303 See Other", [("Location", "/")], "")
 
     def _home_response(self) -> tuple[str, list[tuple[str, str]], str]:
         db_files = list_competition_dbs(self.data_dir)
@@ -271,10 +279,28 @@ class WebApp:
         open_last_href = (
             f"/dashboard?db={escape(latest_db)}" if latest_db else "#"
         )
+        has_errors = bool(
+            self.log_file
+            and self.log_file.exists()
+            and self.log_file.stat().st_size > 0
+        )
+        error_banner = (
+            f"""
+<div class="error-banner">
+  <div class="error-banner-body">
+    <strong>⚠ Зафиксированы ошибки работы программы.</strong>
+    Пожалуйста, отправьте файл <code>{escape(str(self.log_file))}</code> автору для анализа.
+  </div>
+  <a class="error-banner-clear" href="/clear-error-log">Очистить</a>
+</div>
+"""
+            if has_errors
+            else ""
+        )
         body = _page(
             "RaftSecretary",
             f"""
-<div class="index-hero">
+{error_banner}<div class="index-hero">
   <div>
     <h1>RaftSecretary</h1>
   </div>
@@ -5318,6 +5344,37 @@ def _page(title: str, content: str) -> str:
         cursor: pointer;
       }}
       .ledger-row:hover .delete-link {{ opacity: 1; }}
+      .error-banner {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        background: #fdf3ef;
+        border: 1px solid #c9876f;
+        border-left: 4px solid var(--danger);
+        padding: 14px 20px;
+        margin-bottom: 24px;
+        font-size: 14px;
+        color: var(--text);
+      }}
+      .error-banner code {{
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        background: rgba(0,0,0,0.06);
+        padding: 2px 5px;
+        word-break: break-all;
+      }}
+      .error-banner-body {{ flex: 1; line-height: 1.5; }}
+      .error-banner-clear {{
+        flex-shrink: 0;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--danger);
+        text-decoration: underline;
+        cursor: pointer;
+        white-space: nowrap;
+      }}
       .index-hero {{
         border-bottom: 1px solid var(--line);
         padding-bottom: 32px;
@@ -6171,8 +6228,8 @@ def _category_label(category: Category) -> str:
     return f"{category.boat_class} {sex_label} {age}"
 
 
-def create_app(data_dir: Path) -> WebApp:
-    return WebApp(data_dir=data_dir)
+def create_app(data_dir: Path, log_file: Path | None = None) -> WebApp:
+    return WebApp(data_dir=data_dir, log_file=log_file)
 
 
 def _normalize_filename(value: str) -> str:

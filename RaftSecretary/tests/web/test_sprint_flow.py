@@ -38,7 +38,7 @@ def test_sprint_page_displays_all_teams_of_category_in_table(tmp_path: Path) -> 
 
     assert status == "200 OK"
     assert "№ п/п" in body
-    assert "Время старта" in body
+    assert "Время первого старта" in body
     assert ">№<" in body
     assert "Субъект" in body
     assert "Штраф" in body
@@ -89,7 +89,7 @@ def test_sprint_save_endpoint_persists_table_rows(tmp_path: Path) -> None:
     entries = load_sprint_entries(db_path, "R4:men:U24")
 
     assert status == "303 See Other"
-    assert ("Location", "/sprint?db=event.db&category=R4%3Amen%3AU24") in headers
+    assert ("Location", "/sprint?db=event.db&category=R4%3Amen%3AU24&saved=1") in headers
     assert body == ""
     assert len(entries) == 1
     assert entries[0].start_order == 3

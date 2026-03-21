@@ -49,7 +49,7 @@ def test_sprint_draw_assigns_unique_start_orders_for_category(tmp_path: Path) ->
     entries = load_sprint_entries(db_path, "R4:men:U24")
 
     assert status == "303 See Other"
-    assert ("Location", "/sprint?db=event.db&category=R4%3Amen%3AU24") in headers
+    assert ("Location", "/sprint?db=event.db&category=R4%3Amen%3AU24&saved=1") in headers
     assert body == ""
     assert sorted(entry.start_order for entry in entries) == [1, 2, 3]
     assert [entry.start_time for entry in sorted(entries, key=lambda item: item.start_order)] == ["10:00", "10:02", "10:04"]

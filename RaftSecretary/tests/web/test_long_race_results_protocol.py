@@ -128,7 +128,7 @@ def test_long_race_results_protocol_renders_header_table_and_party_order(tmp_pat
     assert "Длинная гонка" in body
     assert "Федерация рафтинга ЮФО" in body
     assert "Река Белая" in body
-    assert "R4 Мужчины U16" in body
+    assert "R4 Юноши до 16 лет" in body
     assert "Каньон" in body
     assert "Шторм" in body
     assert "11:00" in body

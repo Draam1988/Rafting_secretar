@@ -37,10 +37,9 @@ def test_settings_page_displays_saved_competition_settings(tmp_path: Path) -> No
     assert "р. Белая" in body
     assert "Параллельный спринт" in body
     assert "9" in body
-    assert "Основные данные" in body
     assert "Дисциплины" in body
     assert "Категории" in body
-    assert "R4 Мужчины U24" in body
+    assert "R4 Юниоры до 24 лет" in body
     assert "2 выбрано" in body
 
 
@@ -88,8 +87,8 @@ def test_teams_page_displays_saved_teams(tmp_path: Path) -> None:
     status, _, body = app.handle("GET", "/teams?db=event.db")
 
     assert status == "200 OK"
-    assert "R4 Мужчины U24" in body
-    assert "R6 Женщины U20" in body
+    assert "R4 Юниоры до 24 лет" in body
+    assert "R6 Юниорки до 20 лет" in body
     assert "+ Добавить команду" in body
     assert "Субъект РФ" in body
     assert "Storm" in body

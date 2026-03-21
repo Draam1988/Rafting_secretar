@@ -16,7 +16,7 @@ class CompetitionSettingsRecord:
     categories: list[Category]
     slalom_gate_count: int
     competition_dates: list[str] = field(default_factory=list)
-    organizer: str = ""
+    organizer: str = field(default="", compare=False)  # display compat, derived from organizers on load
     organizers: list[str] = field(default_factory=list)
     venue: str = ""
 

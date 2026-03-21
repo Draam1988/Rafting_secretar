@@ -141,7 +141,7 @@ def test_slalom_results_protocol_renders_attempts_best_result_places_and_active_
     assert status == "200 OK"
     assert "Итоговый протокол" in body
     assert "Дисциплина: Слалом" in body
-    assert "R4 Мужчины U16" in body
+    assert "R4 Юноши до 16 лет" in body
     assert "Федерация рафтинга России" in body
     assert "Главный судья" in body
     assert "старт" in body

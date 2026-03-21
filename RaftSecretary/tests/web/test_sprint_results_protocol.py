@@ -109,8 +109,8 @@ def test_sprint_results_protocol_renders_header_and_category_tables(tmp_path: Pa
     assert "Река Белая" in body
     assert "Первенство ЮФО" in body
     assert "2026-03-27" in body
-    assert "R4 Мужчины U16" in body
-    assert "R4 Женщины U16" in body
+    assert "R4 Юноши до 16 лет" in body
+    assert "R4 Девушки до 16 лет" in body
     assert "Шторм" in body
     assert "Волна" in body
     assert "Главный судья" in body

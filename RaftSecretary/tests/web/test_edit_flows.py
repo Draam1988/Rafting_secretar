@@ -21,7 +21,7 @@ def test_update_settings_endpoint_saves_competition_settings(tmp_path: Path) -> 
             "competition_date_1": "2026-05-10",
             "competition_date_2": "2026-05-11",
             "description": "Test river",
-            "organizer": "Минспорт",
+            "organizer_1": "Минспорт",
             "venue": "р. Белая",
             "discipline_sprint": "on",
             "discipline_parallel_sprint": "on",
@@ -38,7 +38,7 @@ def test_update_settings_endpoint_saves_competition_settings(tmp_path: Path) -> 
     assert body == ""
     assert saved.name == "Spring Cup"
     assert saved.competition_dates == ["2026-05-10", "2026-05-11"]
-    assert saved.organizer == "Минспорт"
+    assert "Минспорт" in saved.organizers
     assert saved.venue == "р. Белая"
     assert saved.enabled_disciplines == ["sprint", "parallel_sprint", "slalom"]
     assert saved.slalom_gate_count == 12
@@ -68,7 +68,7 @@ def test_add_team_endpoint_saves_team_and_athletes(tmp_path: Path) -> None:
     teams = load_teams(db_path)
 
     assert status == "303 See Other"
-    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24") in headers
+    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24#category-R4-men-U24") in headers
     assert body == ""
     assert len(teams) == 1
     assert teams[0].name == "Storm"
@@ -117,7 +117,7 @@ def test_edit_team_endpoint_replaces_existing_team_data(tmp_path: Path) -> None:
     teams = load_teams(db_path)
 
     assert status == "303 See Other"
-    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24") in headers
+    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24#category-R4-men-U24") in headers
     assert body == ""
     assert len(teams) == 1
     assert teams[0].name == "Storm Updated"
@@ -160,7 +160,8 @@ def test_edit_team_page_keeps_target_category_open(tmp_path: Path) -> None:
     status, _, body = app.handle("GET", "/teams?db=event.db&edit_category=R4%3Amen%3AU24&edit_number=1")
 
     assert status == "200 OK"
-    assert '<details class="panel-card" open>' in body
+    assert 'class="tc-category"' in body
+    assert 'open>' in body
     assert 'value="Storm"' in body
 
 
@@ -185,7 +186,7 @@ def test_add_team_redirect_keeps_category_open(tmp_path: Path) -> None:
     )
 
     assert status == "303 See Other"
-    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24") in headers
+    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24#category-R4-men-U24") in headers
 
 
 def test_add_team_endpoint_saves_structured_members_with_year_and_custom_rank(tmp_path: Path) -> None:
@@ -220,7 +221,7 @@ def test_add_team_endpoint_saves_structured_members_with_year_and_custom_rank(tm
     teams = load_teams(db_path)
 
     assert status == "303 See Other"
-    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24") in headers
+    assert ("Location", "/teams?db=event.db&open_category=R4%3Amen%3AU24#category-R4-men-U24") in headers
     assert body == ""
     assert len(teams) == 1
     assert len(teams[0].members) == 2
