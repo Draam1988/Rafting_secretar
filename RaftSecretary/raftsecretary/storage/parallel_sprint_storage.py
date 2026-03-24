@@ -382,6 +382,8 @@ def clear_parallel_sprint_protocol(
         connection.execute("DELETE FROM parallel_sprint_heat_meta WHERE category_key = ?", (category_key,))
         connection.execute("DELETE FROM parallel_sprint_start_entries WHERE category_key = ?", (category_key,))
         connection.execute("DELETE FROM parallel_sprint_lineup_flags WHERE category_key = ?", (category_key,))
+        connection.execute("DELETE FROM parallel_sprint_seeding WHERE category_key = ?", (category_key,))
+        connection.execute("DELETE FROM parallel_sprint_manual_mode WHERE category_key = ?", (category_key,))
         connection.commit()
 
 

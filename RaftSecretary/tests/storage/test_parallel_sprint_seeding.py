@@ -58,3 +58,14 @@ def test_seeding_isolated_by_category(tmp_path: Path) -> None:
     save_seeding(db, "R6:women:U24", ["X1", "X2"])
     assert get_seeding(db, "R4:men:U24") == ["T1", "T2"]
     assert get_seeding(db, "R6:women:U24") == ["X1", "X2"]
+
+
+def test_clear_protocol_also_clears_seeding(tmp_path: Path) -> None:
+    from raftsecretary.storage.parallel_sprint_storage import clear_parallel_sprint_protocol
+    db = tmp_path / "e.db"
+    create_competition_db(db)
+    save_seeding(db, "R4:men:U24", ["T1", "T2", "T3"])
+    set_manual_mode(db, "R4:men:U24", True)
+    clear_parallel_sprint_protocol(db, "R4:men:U24")
+    assert get_seeding(db, "R4:men:U24") == []
+    assert get_manual_mode(db, "R4:men:U24") is False
