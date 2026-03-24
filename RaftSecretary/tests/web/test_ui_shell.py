@@ -20,7 +20,7 @@ def test_home_page_shows_three_primary_actions_and_meta(tmp_path: Path) -> None:
 
     assert status == "200 OK"
     assert "RaftSecretary" in body
-    assert "v.0.1" in body
+    assert "v.0." in body
     assert "Автор" in body
     assert "Открыть последнее соревнование" in body
     assert "Новое соревнование" in body

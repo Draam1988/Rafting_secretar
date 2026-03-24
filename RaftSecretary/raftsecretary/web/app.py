@@ -222,6 +222,8 @@ class WebApp:
             return self._save_sprint_response(form_data or {})
         if method == "POST" and route_path == "/sprint/draw":
             return self._draw_sprint_response(form_data or {})
+        if method == "POST" and route_path == "/sprint/assign-times":
+            return self._assign_sprint_times_response(form_data or {})
         if method == "POST" and route_path == "/sprint/lineup":
             return self._save_sprint_lineup_response(form_data or {})
         if method == "POST" and route_path == "/long-race/build":
@@ -821,6 +823,18 @@ class WebApp:
             )
             for index, team in enumerate(sorted(available_teams, key=lambda team: (entry_by_team.get(team.name).start_order if entry_by_team.get(team.name) else 9999, team.start_number, team.name)), start=1)
         ) or '<tr><td colspan="10">Для этой категории команд пока нет</td></tr>'
+        # Derive saved draw parameters from existing entries
+        ordered_entries = sorted(
+            [e for e in saved_entries if e.start_time],
+            key=lambda e: e.start_order,
+        )
+        saved_draw_start = ordered_entries[0].start_time if ordered_entries else "10:00"
+        if len(ordered_entries) >= 2:
+            saved_draw_interval = _format_hhmm(
+                max(0, _parse_hhmm(ordered_entries[1].start_time) - _parse_hhmm(ordered_entries[0].start_time))
+            )
+        else:
+            saved_draw_interval = "00:02"
         body = _page(
             "Спринт",
             f"""
@@ -848,15 +862,16 @@ class WebApp:
         <div class="sprint-draw-grid">
           <div class="draw-field">
             <span>Время первого старта</span>
-            <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" />
+            <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="{escape(saved_draw_start)}" placeholder="10:00" />
           </div>
           <div class="draw-field">
             <span>Интервал</span>
-            <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" />
+            <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="{escape(saved_draw_interval)}" placeholder="00:02" />
           </div>
           <div class="draw-actions">
             <button type="submit" class="stitch-cta">Провести жеребьевку</button>
             <button type="submit" class="stitch-cta" name="redraw" value="1">Пережеребить</button>
+            <button type="submit" formaction="/sprint/assign-times" class="stitch-cta">Распределить по времени</button>
           </div>
         </div>
       </form>
@@ -1119,6 +1134,36 @@ class WebApp:
                     status=_normalize_sprint_status(current.status if current else "OK"),
                 )
             )
+        save_sprint_entries(db_path, category_key, entries)
+        return ("303 See Other", [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}&saved=1")], "")
+
+    def _assign_sprint_times_response(
+        self,
+        form_data: dict[str, str | bytes],
+    ) -> tuple[str, list[tuple[str, str]], str]:
+        """Assign start times based on current saved start_order without shuffling."""
+        db_name = str(form_data.get("db", ""))
+        category_key = str(form_data.get("category_key", ""))
+        db_path = self.data_dir / db_name
+        draw_start_time = str(form_data.get("draw_start_time", "10:00")).strip() or "10:00"
+        draw_interval = str(form_data.get("draw_interval", "00:02")).strip() or "00:02"
+        base_minutes = _parse_hhmm(draw_start_time)
+        interval_minutes = _parse_hhmm(draw_interval)
+        existing = load_sprint_entries(db_path, category_key)
+        # Sort by current start_order (preserving secretary's manual order)
+        ordered = sorted(existing, key=lambda e: (e.start_order, e.team_name))
+        entries = [
+            SprintEntry(
+                team_name=e.team_name,
+                start_order=e.start_order,
+                start_time=_format_hhmm(base_minutes + pos * interval_minutes),
+                base_time_seconds=e.base_time_seconds,
+                buoy_penalty_seconds=e.buoy_penalty_seconds,
+                behavior_penalty_seconds=e.behavior_penalty_seconds,
+                status=e.status,
+            )
+            for pos, e in enumerate(ordered)
+        ]
         save_sprint_entries(db_path, category_key, entries)
         return ("303 See Other", [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}&saved=1")], "")
 
