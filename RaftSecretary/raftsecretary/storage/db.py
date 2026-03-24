@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 CURRENT_SCHEMA_VERSION = 1
-CURRENT_APP_VERSION = "v.0.2.7"
+CURRENT_APP_VERSION = "v.0.3.7"
 
 
 def create_competition_db(db_path: Path) -> Path:

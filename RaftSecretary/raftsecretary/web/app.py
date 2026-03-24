@@ -71,7 +71,7 @@ from raftsecretary.domain.slalom import SlalomRun, best_run_for_team
 from raftsecretary.domain.combined import combine_points
 from raftsecretary.domain.points import points_for_place
 
-APP_VERSION = "v.0.2.7"
+APP_VERSION = "v.0.3.7"
 VERSION_DATE = "24.03.2026г."
 APP_AUTHOR = "Павел Хохрин"
 GITHUB_REPO = "Draam1988/Rafting_secretar"
