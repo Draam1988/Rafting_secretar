@@ -1369,16 +1369,25 @@ class WebApp:
             )
             for category in settings.categories
         ) or "<li>Категории не настроены</li>"
+        # Build slot items: positional list from stored_seeding (may have empty strings)
+        if stored_seeding:
+            slot_items = [
+                (i + 1, team_map.get(name) if name else None, name, i + 1)
+                for i, name in enumerate(stored_seeding)
+            ]
+        else:
+            slot_items = [(i + 1, team, team.name, 0) for i, team in enumerate(ordered_teams)]
         start_nodes = "".join(
             _parallel_sprint_start_node_html(
-                index=index,
+                index=pos,
                 db_name=db_name,
                 category_key=category_key,
                 team=team,
-                entry=saved_by_team.get(team.name),
-                is_open=open_team == team.name,
+                entry=saved_by_team.get(name) if name else None,
+                is_open=open_team == name if name else False,
+                slot_index=slot_idx,
             )
-            for index, team in enumerate(ordered_teams, start=1)
+            for pos, team, name, slot_idx in slot_items
         ) or '<div class="subtle">Для H2H пока не хватает результатов спринта.</div>'
         open_result_panel = _parallel_sprint_result_panel_html(
             db_name,
@@ -1445,13 +1454,21 @@ class WebApp:
         <h2>Категории</h2>
         <ul class="compact-list">{available_categories}</ul>
       </div>
-      <form method="post" action="/parallel-sprint/build" class="team-actions">
-        <input type="hidden" name="db" value="{escape(db_name)}" />
-        <input type="hidden" name="category_key" value="{escape(category_key)}" />
-        <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
-        <label>Интервал <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" /></label>
-        <button type="submit" class="stitch-cta">Сформировать старт</button>
-      </form>
+      <div class="h2h-build-controls">
+        <form method="post" action="/parallel-sprint/set-mode" class="h2h-mode-toggle">
+          <input type="hidden" name="db" value="{escape(db_name)}" />
+          <input type="hidden" name="category_key" value="{escape(category_key)}" />
+          <button type="submit" name="manual" value="0" class="mode-toggle-btn{'  mode-toggle--active' if not manual_mode else ''}">Авто</button>
+          <button type="submit" name="manual" value="1" class="mode-toggle-btn{'  mode-toggle--active' if manual_mode else ''}">Вручную</button>
+        </form>
+        <form method="post" action="/parallel-sprint/build" class="team-actions">
+          <input type="hidden" name="db" value="{escape(db_name)}" />
+          <input type="hidden" name="category_key" value="{escape(category_key)}" />
+          <label>Время старта <input class="inline-time" data-time-mask="hhmm" name="draw_start_time" value="10:00" placeholder="10:00" /></label>
+          <label>Интервал <input class="inline-time" data-time-mask="hhmm" name="draw_interval" value="00:02" placeholder="00:02" /></label>
+          <button type="submit" class="stitch-cta">{'Расставить вручную' if manual_mode else 'Сформировать старт'}</button>
+        </form>
+      </div>
       <form method="post" action="/parallel-sprint/clear" class="team-actions" onsubmit="return confirm('Очистить весь протокол H2H для этой категории?');">
         <input type="hidden" name="db" value="{escape(db_name)}" />
         <input type="hidden" name="category_key" value="{escape(category_key)}" />
@@ -5033,6 +5050,120 @@ def _page(title: str, content: str) -> str:
         text-overflow: ellipsis;
         white-space: nowrap;
       }}
+      /* ── H2H Manual Bracket ── */
+      .h2h-build-controls {{
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+      }}
+      .h2h-mode-toggle {{
+        display: flex;
+        gap: 0;
+      }}
+      .mode-toggle-btn {{
+        padding: 0.3rem 0.9rem;
+        border: 1.5px solid var(--ink, #2b2b2b);
+        background: var(--paper, #fff);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        line-height: 1.4;
+      }}
+      .mode-toggle-btn:first-child {{ border-radius: 3px 0 0 3px; }}
+      .mode-toggle-btn:last-child  {{ border-radius: 0 3px 3px 0; border-left: none; }}
+      .mode-toggle--active {{
+        background: var(--ink, #2b2b2b);
+        color: var(--paper, #fff);
+      }}
+      .h2h-start-node--empty {{
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 486px;
+        min-height: 76px;
+        border: 1.5px dashed #aaa;
+        box-sizing: border-box;
+        padding: 0.5rem 1rem;
+        background: #fafaf8;
+      }}
+      .h2h-start-node-pos {{
+        color: #888;
+        font-size: 0.85rem;
+        min-width: 2rem;
+      }}
+      .slot-add-btn {{
+        font-size: 0.9rem;
+        color: var(--accent, #1a6b3c);
+        text-decoration: none;
+      }}
+      .slot-add-btn:hover {{ text-decoration: underline; }}
+      .slot-edit-btn {{
+        font-size: 0.75rem;
+        opacity: 0.45;
+        text-decoration: none;
+        color: inherit;
+        margin-left: 0.3rem;
+        vertical-align: middle;
+      }}
+      .slot-edit-btn:hover {{ opacity: 1; }}
+      .slot-panel {{
+        position: fixed;
+        top: 0; right: 0;
+        width: min(360px, 100vw);
+        height: 100vh;
+        background: var(--paper, #fff);
+        border-left: 2px solid var(--ink, #2b2b2b);
+        display: flex;
+        flex-direction: column;
+        z-index: 200;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.13);
+      }}
+      .slot-panel-head {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1.5px solid #e0ddd5;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }}
+      .slot-panel-close {{
+        font-size: 1.1rem;
+        text-decoration: none;
+        color: inherit;
+        opacity: 0.5;
+      }}
+      .slot-panel-close:hover {{ opacity: 1; }}
+      .slot-panel-list {{
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.25rem 0;
+      }}
+      .slot-panel-row {{ border: none; background: none; width: 100%; padding: 0; }}
+      .slot-panel-btn {{
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.6rem 1.25rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        font-size: 0.9rem;
+      }}
+      .slot-panel-btn:hover {{ background: #f4f2ec; }}
+      .slot-panel-current .slot-panel-btn {{ background: #f4f2ec; font-weight: 600; }}
+      .slot-panel-rank {{ color: #888; font-size: 0.78rem; min-width: 2.2rem; }}
+      .slot-panel-name {{ flex: 1; }}
+      .slot-panel-region {{ color: #888; font-size: 0.78rem; }}
+      .slot-panel-clear {{
+        padding: 0.75rem 1.25rem;
+        border-top: 1.5px solid #e0ddd5;
+      }}
       .sr-only {{
         position: absolute;
         width: 1px;
@@ -6802,10 +6933,24 @@ def _parallel_sprint_start_node_html(
     index: int,
     db_name: str,
     category_key: str,
-    team: Team,
+    team: Team | None,
     entry: SprintEntry | None,
     is_open: bool,
+    slot_index: int = 0,
 ) -> str:
+    # Empty slot placeholder (manual mode, team not yet assigned)
+    if team is None:
+        edit_url = f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}&open_slot={slot_index}"
+        return f"""
+<article class="h2h-start-node h2h-start-node--empty">
+  <span class="h2h-start-node-pos">#{slot_index}</span>
+  <a href="{edit_url}" class="slot-add-btn">+ Добавить команду</a>
+</article>
+"""
+    edit_link = ""
+    if slot_index > 0:
+        edit_url = f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}&open_slot={slot_index}"
+        edit_link = f'<a href="{edit_url}" class="slot-edit-btn" title="Изменить команду">✏</a>'
     lineup_href = f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}&open_team={quote(team.name)}#parallel-lineup"
     return f"""
 <article class="h2h-start-node">
@@ -6824,6 +6969,7 @@ def _parallel_sprint_start_node_html(
       <div class="h2h-start-node-name">
         <span class="sr-only">Команда</span>
         <a href="{lineup_href}">{escape(team.name)}</a>
+        {edit_link}
       </div>
     </div>
     <div class="h2h-start-node-bottom">

@@ -912,10 +912,80 @@ def test_slot_panel_hides_already_placed_teams(tmp_path: Path) -> None:
         "GET",
         f"/parallel-sprint?db={db_name}&category=R4:men:U24&open_slot=3",
     )
-    assert "slot-panel" in body
+    assert 'class="slot-panel"' in body
     # T3, T4 should be available options; T1 and T2 are already placed
-    # Find the slot-panel section in the body to check
-    panel_start = body.find("slot-panel")
-    panel_section = body[panel_start:panel_start + 2000]
+    # Find the actual panel div (skipping CSS definitions that also contain "slot-panel")
+    panel_start = body.find('class="slot-panel"')
+    panel_section = body[panel_start:panel_start + 3000]
     assert "T3" in panel_section
     assert "T4" in panel_section
+
+
+def test_start_node_shows_edit_button_when_seeding_exists(tmp_path: Path) -> None:
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    _save_seeding(tmp_path / db_name, "R4:men:U24", ["T1", "T2", "T3", "T4"])
+    _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
+    assert "open_slot=1" in body
+
+
+def test_start_node_shows_add_button_for_empty_slot(tmp_path: Path) -> None:
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    _save_seeding(tmp_path / db_name, "R4:men:U24", ["T1", "", "", ""])
+    _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
+    assert "open_slot=2" in body
+    assert "Добавить" in body
+
+
+def test_build_card_shows_mode_toggle(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
+    assert "Авто" in body
+    assert "Вручную" in body
+    assert "/parallel-sprint/set-mode" in body
+
+
+def test_build_card_toggle_reflects_manual_mode(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    set_manual_mode(tmp_path / db_name, "R4:men:U24", True)
+    _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
+    assert "Расставить вручную" in body
+
+
+def test_full_manual_bracket_flow(tmp_path: Path) -> None:
+    """Secretary switches to manual, builds empty bracket, assigns all 4 teams."""
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+
+    # 1. Switch to manual mode
+    app.handle("POST", "/parallel-sprint/set-mode",
+               form_data={"db": db_name, "category_key": "R4:men:U24", "manual": "1"})
+    assert get_manual_mode(db_path, "R4:men:U24") is True
+
+    # 2. Build creates empty slots
+    app.handle("POST", "/parallel-sprint/build",
+               form_data={"db": db_name, "category_key": "R4:men:U24",
+                          "draw_start_time": "10:00", "draw_interval": "00:02"})
+    seeding = get_seeding(db_path, "R4:men:U24")
+    assert seeding == ["", "", "", ""]
+
+    # 3. Assign teams manually in reverse order
+    for slot, team in enumerate(["T4", "T3", "T2", "T1"], start=1):
+        app.handle("POST", "/parallel-sprint/assign-slot",
+                   form_data={"db": db_name, "category_key": "R4:men:U24",
+                              "slot_index": str(slot), "team_name": team})
+    assert get_seeding(db_path, "R4:men:U24") == ["T4", "T3", "T2", "T1"]
+
+    # 4. Page renders with T4 before T1
+    _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
+    assert body.index("T4") < body.index("T1")
+
+    # 5. Switch back to auto and rebuild — seeding resets to sprint rank order
+    app.handle("POST", "/parallel-sprint/set-mode",
+               form_data={"db": db_name, "category_key": "R4:men:U24", "manual": "0"})
+    app.handle("POST", "/parallel-sprint/build",
+               form_data={"db": db_name, "category_key": "R4:men:U24",
+                          "draw_start_time": "10:00", "draw_interval": "00:02"})
+    assert get_seeding(db_path, "R4:men:U24")[0] == "T1"
