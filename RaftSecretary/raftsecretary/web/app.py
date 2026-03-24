@@ -49,7 +49,7 @@ from raftsecretary.storage.sprint_storage import (
     save_sprint_entries,
     save_sprint_lineup_flags,
 )
-from raftsecretary.storage.team_storage import load_teams, save_teams
+from raftsecretary.storage.team_storage import delete_team, load_teams, save_teams
 from raftsecretary.domain.sprint import SprintEntry, rank_sprint_entries
 from raftsecretary.domain.parallel_sprint import (
     ParallelSprintHeatResult,
@@ -957,7 +957,9 @@ class WebApp:
     <p class="confirm-text">Удалить команду <strong>{escape(team_name)}</strong>?</p>
     <form method="post" action="/teams/delete" class="confirm-actions">
       <input type="hidden" name="db" value="{escape(db_name)}" />
-      <input type="hidden" name="category_key" value="{escape(category_key)}" />
+      <input type="hidden" name="boat_class" value="{escape(team.boat_class if team else '')}" />
+      <input type="hidden" name="sex" value="{escape(team.sex if team else '')}" />
+      <input type="hidden" name="age_group" value="{escape(team.age_group if team else '')}" />
       <input type="hidden" name="start_number" value="{start_number}" />
       <input type="hidden" name="confirm" value="yes" />
       <button type="submit" class="danger-button">Удалить</button>
@@ -976,14 +978,12 @@ class WebApp:
         db_name = form_data.get("db", "")
         db_path = self.data_dir / db_name
         if form_data.get("confirm") == "yes":
-            category_key = form_data.get("category_key", "")
+            boat_class = form_data.get("boat_class", "")
+            sex = form_data.get("sex", "")
+            age_group = form_data.get("age_group", "")
             start_number = int(form_data.get("start_number", "0") or 0)
-            filtered = [
-                team
-                for team in load_teams(db_path)
-                if not (team.category_key == category_key and team.start_number == start_number)
-            ]
-            save_teams(db_path, filtered)
+            if boat_class and sex and age_group and start_number > 0:
+                delete_team(db_path, boat_class, sex, age_group, start_number)
         return ("303 See Other", [("Location", f"/teams?db={quote(db_name)}")], "")
 
     def _save_judges_response(

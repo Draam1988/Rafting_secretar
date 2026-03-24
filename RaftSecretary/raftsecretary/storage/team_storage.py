@@ -6,6 +6,24 @@ from pathlib import Path
 from raftsecretary.domain.models import Team, TeamMember
 
 
+def delete_team(db_path: Path, boat_class: str, sex: str, age_group: str, start_number: int) -> None:
+    """Delete a single team by its unique identity. Safer than load-filter-save."""
+    with sqlite3.connect(db_path) as connection:
+        _ensure_team_schema(connection)
+        team_ids = [
+            row[0]
+            for row in connection.execute(
+                "SELECT id FROM teams WHERE boat_class=? AND sex=? AND age_group=? AND start_number=?",
+                (boat_class, sex, age_group, start_number),
+            ).fetchall()
+        ]
+        if team_ids:
+            placeholders = ",".join("?" * len(team_ids))
+            connection.execute(f"DELETE FROM athletes WHERE team_id IN ({placeholders})", team_ids)
+            connection.execute(f"DELETE FROM teams WHERE id IN ({placeholders})", team_ids)
+        connection.commit()
+
+
 def save_teams(db_path: Path, teams: list[Team]) -> None:
     with sqlite3.connect(db_path) as connection:
         _ensure_team_schema(connection)

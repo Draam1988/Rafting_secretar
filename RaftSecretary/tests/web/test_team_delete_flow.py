@@ -57,7 +57,7 @@ def test_team_delete_endpoint_removes_team(tmp_path: Path) -> None:
     status, headers, body = app.handle(
         "POST",
         "/teams/delete",
-        form_data={"db": "event.db", "category_key": "R4:men:U24", "start_number": "1", "confirm": "yes"},
+        form_data={"db": "event.db", "boat_class": "R4", "sex": "men", "age_group": "U24", "start_number": "1", "confirm": "yes"},
     )
 
     assert status == "303 See Other"
