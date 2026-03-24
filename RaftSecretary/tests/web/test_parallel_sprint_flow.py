@@ -878,3 +878,14 @@ def test_manual_build_creates_empty_slots(tmp_path: Path) -> None:
     seeding = get_seeding(db_path, "R4:men:U24")
     assert len(seeding) == 4
     assert all(name == "" for name in seeding)
+
+
+def test_page_respects_manual_seeding_order(tmp_path: Path) -> None:
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    # Manually set seeding: T4 first (reversed from sprint rank where T1 is rank 1)
+    _save_seeding(db_path, "R4:men:U24", ["T4", "T3", "T2", "T1"])
+    _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
+    # T4 should appear before T1 in the start list
+    assert body.index("T4") < body.index("T1")

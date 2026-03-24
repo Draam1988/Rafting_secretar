@@ -1347,8 +1347,18 @@ class WebApp:
         lineup_flags = load_parallel_sprint_lineup_flags(db_path, category_key)
         category_teams = [team for team in teams if team.category_key == category_key]
         team_map = {team.name: team for team in category_teams}
-        ordered_teams = [team_map[name] for name in sprint_order if name in team_map]
-        seeded_team_names = [team.name for team in ordered_teams]
+        manual_mode = get_manual_mode(db_path, category_key)
+        stored_seeding = get_seeding(db_path, category_key)
+        if stored_seeding:
+            # Use stored seeding (auto-generated or manually set), filter empty + unknown
+            seeded_team_names = [name for name in stored_seeding if name and name in team_map]
+            # Append any category teams not yet in seeding (e.g. registered after build)
+            for name in sprint_order:
+                if name not in seeded_team_names and name in team_map:
+                    seeded_team_names.append(name)
+        else:
+            seeded_team_names = [name for name in sprint_order if name in team_map]
+        ordered_teams = [team_map[name] for name in seeded_team_names]
         available_categories = "".join(
             (
                 f"<li><strong>{escape(category.key)}</strong></li>"
