@@ -1332,6 +1332,7 @@ class WebApp:
         category_key = query.get("category", "")
         open_team = query.get("open_team", "").strip()
         open_result = query.get("open_result", "").strip()
+        open_slot = int(query.get("open_slot", "0") or "0")
         db_path = self.data_dir / db_name
         settings = load_competition_settings(db_path)
         teams = load_teams(db_path)
@@ -1359,6 +1360,7 @@ class WebApp:
         else:
             seeded_team_names = [name for name in sprint_order if name in team_map]
         ordered_teams = [team_map[name] for name in seeded_team_names]
+        sprint_rank = {entry.team_name: entry.start_order for entry in sprint_entries}
         available_categories = "".join(
             (
                 f"<li><strong>{escape(category.key)}</strong></li>"
@@ -1413,6 +1415,18 @@ class WebApp:
             heat_meta,
             saved_by_round,
         )
+        slot_panel = (
+            _parallel_sprint_slot_panel_html(
+                db_name,
+                category_key,
+                open_slot,
+                list(category_teams),
+                stored_seeding,
+                sprint_rank,
+            )
+            if open_slot > 0 and stored_seeding
+            else ""
+        )
         body = _page(
             "H2H",
             f"""
@@ -1463,6 +1477,7 @@ class WebApp:
     </div>
   </section>
   {open_team_panel}
+  {slot_panel}
 </section>
 """,
         )
@@ -6856,6 +6871,56 @@ def _parallel_sprint_lineup_panel_html(
     </div>
   </section>
 """
+
+
+def _parallel_sprint_slot_panel_html(
+    db_name: str,
+    category_key: str,
+    slot_index: int,
+    all_teams: list,
+    seeding: list[str],
+    sprint_rank: dict[str, int],
+) -> str:
+    if slot_index < 1:
+        return ""
+    placed = {name for i, name in enumerate(seeding) if name and i != slot_index - 1}
+    available = [t for t in all_teams if t.name not in placed]
+    current = seeding[slot_index - 1] if slot_index <= len(seeding) else ""
+    rows = "".join(
+        f"""<form method="post" action="/parallel-sprint/assign-slot" class="slot-panel-row{' slot-panel-current' if t.name == current else ''}">
+  <input type="hidden" name="db" value="{escape(db_name)}" />
+  <input type="hidden" name="category_key" value="{escape(category_key)}" />
+  <input type="hidden" name="slot_index" value="{slot_index}" />
+  <input type="hidden" name="team_name" value="{escape(t.name)}" />
+  <button type="submit" class="slot-panel-btn">
+    <span class="slot-panel-rank">#{sprint_rank.get(t.name, '—')}</span>
+    <span class="slot-panel-name">{escape(t.name)}</span>
+    <span class="slot-panel-region">{escape(t.region)}</span>
+  </button>
+</form>"""
+        for t in available
+    ) or "<p class='subtle'>Все команды уже распределены.</p>"
+    clear_btn = (
+        f"""<form method="post" action="/parallel-sprint/clear-slot" class="slot-panel-clear">
+  <input type="hidden" name="db" value="{escape(db_name)}" />
+  <input type="hidden" name="category_key" value="{escape(category_key)}" />
+  <input type="hidden" name="slot_index" value="{slot_index}" />
+  <button type="submit" class="stitch-danger-btn">Очистить слот</button>
+</form>"""
+        if current
+        else ""
+    )
+    close_url = f"/parallel-sprint?db={escape(db_name)}&category={escape(category_key)}"
+    return f"""<div class="slot-panel">
+  <div class="slot-panel-head">
+    <span>Слот {slot_index}</span>
+    <a href="{close_url}" class="slot-panel-close">✕</a>
+  </div>
+  <div class="slot-panel-list">
+    {rows}
+  </div>
+  {clear_btn}
+</div>"""
 
 
 def _parallel_sprint_rules_hint(team_count: int) -> str:

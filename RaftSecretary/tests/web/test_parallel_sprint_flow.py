@@ -889,3 +889,33 @@ def test_page_respects_manual_seeding_order(tmp_path: Path) -> None:
     _, _, body = app.handle("GET", f"/parallel-sprint?db={db_name}&category=R4:men:U24")
     # T4 should appear before T1 in the start list
     assert body.index("T4") < body.index("T1")
+
+
+def test_slot_panel_shows_when_open_slot_requested(tmp_path: Path) -> None:
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    _save_seeding(db_path, "R4:men:U24", ["T1", "", "", ""])
+    _, _, body = app.handle(
+        "GET",
+        f"/parallel-sprint?db={db_name}&category=R4:men:U24&open_slot=2",
+    )
+    assert "slot-panel" in body
+
+
+def test_slot_panel_hides_already_placed_teams(tmp_path: Path) -> None:
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    _save_seeding(db_path, "R4:men:U24", ["T1", "T2", "", ""])
+    _, _, body = app.handle(
+        "GET",
+        f"/parallel-sprint?db={db_name}&category=R4:men:U24&open_slot=3",
+    )
+    assert "slot-panel" in body
+    # T3, T4 should be available options; T1 and T2 are already placed
+    # Find the slot-panel section in the body to check
+    panel_start = body.find("slot-panel")
+    panel_section = body[panel_start:panel_start + 2000]
+    assert "T3" in panel_section
+    assert "T4" in panel_section
