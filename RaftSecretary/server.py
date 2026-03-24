@@ -24,7 +24,7 @@ def build_request_path(environ: dict[str, str]) -> str:
     return path
 
 
-def parse_post_form_data(environ: dict[str, object]) -> dict[str, str]:
+def parse_post_form_data(environ: dict[str, object]) -> dict[str, str | bytes]:
     content_type = str(environ.get("CONTENT_TYPE") or "")
     content_length = int(environ.get("CONTENT_LENGTH") or 0)
     raw_body = environ["wsgi.input"].read(content_length)  # type: ignore[index]
@@ -33,17 +33,25 @@ def parse_post_form_data(environ: dict[str, object]) -> dict[str, str]:
             f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
             + raw_body
         )
-        parsed: dict[str, str] = {}
+        parsed: dict[str, str | bytes] = {}
         for part in message.iter_parts():
             name = part.get_param("name", header="content-disposition")
             if not name:
                 continue
             payload = part.get_payload(decode=True)
-            parsed[name] = payload.decode("utf-8") if isinstance(payload, bytes) else str(part.get_content())
+            filename = part.get_param("filename", header="content-disposition")
+            if filename and isinstance(payload, bytes):
+                # file upload — keep raw bytes, store filename under "<name>__filename"
+                parsed[name] = payload
+                parsed[f"{name}__filename"] = filename
+            elif isinstance(payload, bytes):
+                parsed[name] = payload.decode("utf-8", errors="replace")
+            else:
+                parsed[name] = str(part.get_content())
         return parsed
 
-    parsed = parse_qs(raw_body.decode("utf-8"))
-    return {key: values[0] for key, values in parsed.items()}
+    parsed_qs = parse_qs(raw_body.decode("utf-8"))
+    return {key: values[0] for key, values in parsed_qs.items()}
 
 
 def _write_error_log(method: str, path: str, error_text: str) -> None:

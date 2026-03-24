@@ -142,7 +142,7 @@ class WebApp:
         self,
         method: str,
         path: str,
-        form_data: dict[str, str] | None = None,
+        form_data: dict[str, str | bytes] | None = None,
     ) -> tuple[str, list[tuple[str, str]], str | bytes]:
         parsed = urlparse(path)
         route_path = parsed.path
@@ -152,6 +152,10 @@ class WebApp:
             return self._home_response()
         if method == "GET" and route_path == "/competitions/delete":
             return self._delete_competition_confirmation_response(query)
+        if method == "GET" and route_path == "/competitions/download":
+            return self._download_competition_response(query)
+        if method == "POST" and route_path == "/competitions/import":
+            return self._import_competition_response(form_data or {})
         if method == "GET" and route_path == "/dashboard":
             return self._dashboard_response(query)
         if method == "GET" and route_path == "/faq":
@@ -269,7 +273,10 @@ class WebApp:
                 f"""
 <div class="ledger-row">
   <a class="ledger-link" href="/dashboard?db={escape(path.name)}">{escape(_display_competition_name(path.name))}</a>
-  <a class="delete-link" href="/competitions/delete?db={quote(path.name)}">УДАЛИТЬ</a>
+  <div class="ledger-actions">
+    <a class="ledger-dl-link" href="/competitions/download?db={quote(path.name)}">СКАЧАТЬ</a>
+    <a class="delete-link" href="/competitions/delete?db={quote(path.name)}">УДАЛИТЬ</a>
+  </div>
 </div>
 """
                 for path in db_files
@@ -328,6 +335,17 @@ class WebApp:
         <button class="stitch-cta" type="submit" style="display:block; width:100%; text-align:center; padding:12px 0; background:var(--panel2); margin-bottom:0;">Создать файл</button>
       </form>
       <p class="form-hint">База данных будет создана в рабочем каталоге приложения.</p>
+    </div>
+    <div class="form-panel" style="margin-top:16px;">
+      <h3>Импортировать соревнование</h3>
+      <form method="post" action="/competitions/import" enctype="multipart/form-data" class="import-form">
+        <div class="import-drop-area" id="import-drop">
+          <span class="import-hint">Выберите файл .db</span>
+          <input type="file" name="db_file" accept=".db" id="import-file-input" />
+        </div>
+        <button class="stitch-cta" type="submit" style="display:block; width:100%; text-align:center; padding:12px 0; background:var(--panel2); margin-top:10px; margin-bottom:0;">Открыть файл</button>
+      </form>
+      <p class="form-hint">Загрузите .db файл полученный от другого секретаря.</p>
     </div>
     <div style="margin-top:20px; display:flex; gap:8px; flex-wrap:wrap;">
       <a class="stitch-cta" href="/faq">F.A.Q.</a>
@@ -474,12 +492,48 @@ class WebApp:
 
     def _delete_competition_response(
         self,
-        form_data: dict[str, str],
+        form_data: dict[str, str | bytes],
     ) -> tuple[str, list[tuple[str, str]], str]:
-        db_name = form_data.get("db", "")
+        db_name = str(form_data.get("db", ""))
         if form_data.get("confirm") == "yes":
             delete_competition_db(self.data_dir, db_name)
         return ("303 See Other", [("Location", "/")], "")
+
+    def _download_competition_response(
+        self,
+        query: dict[str, str],
+    ) -> tuple[str, list[tuple[str, str]], bytes]:
+        db_name = query.get("db", "")
+        db_path = self.data_dir / db_name
+        if not db_path.exists() or db_path.suffix != ".db":
+            return ("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")], b"Not found")
+        data = db_path.read_bytes()
+        return (
+            "200 OK",
+            [
+                ("Content-Type", "application/octet-stream"),
+                ("Content-Disposition", f'attachment; filename="{db_name}"'),
+                ("Content-Length", str(len(data))),
+            ],
+            data,
+        )
+
+    def _import_competition_response(
+        self,
+        form_data: dict[str, str | bytes],
+    ) -> tuple[str, list[tuple[str, str]], str]:
+        file_data = form_data.get("db_file")
+        filename = str(form_data.get("db_file__filename", "")).strip()
+        if not isinstance(file_data, bytes) or not file_data:
+            return ("303 See Other", [("Location", "/?import_error=empty")], "")
+        # Validate: SQLite magic bytes
+        if not file_data.startswith(b"SQLite format 3\x00"):
+            return ("303 See Other", [("Location", "/?import_error=invalid")], "")
+        # Sanitise filename
+        safe_name = _normalize_filename(filename.removesuffix(".db") if filename.endswith(".db") else filename or "imported")
+        dest = self.data_dir / f"{safe_name}.db"
+        dest.write_bytes(file_data)
+        return ("303 See Other", [("Location", f"/dashboard?db={quote(dest.name)}")], "")
 
     def _settings_response(
         self,
@@ -5344,6 +5398,24 @@ def _page(title: str, content: str) -> str:
         cursor: pointer;
       }}
       .ledger-row:hover .delete-link {{ opacity: 1; }}
+      .ledger-actions {{ display: flex; gap: 12px; align-items: center; }}
+      .ledger-dl-link {{
+        font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--ok); text-decoration: underline; opacity: 0;
+        transition: opacity 0.15s;
+      }}
+      .ledger-row:hover .ledger-dl-link {{ opacity: 1; }}
+      .import-form {{ margin: 0; }}
+      .import-drop-area {{
+        position: relative; border: 1px dashed var(--line);
+        background: var(--panel2); padding: 20px 16px; text-align: center;
+        cursor: pointer;
+      }}
+      .import-drop-area input[type=file] {{
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        opacity: 0; cursor: pointer;
+      }}
+      .import-hint {{ font-size: 13px; color: var(--muted); pointer-events: none; }}
       .error-banner {{
         display: flex;
         align-items: center;
