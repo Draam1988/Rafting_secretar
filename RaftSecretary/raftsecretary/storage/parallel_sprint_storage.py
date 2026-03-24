@@ -239,6 +239,25 @@ def _ensure_parallel_sprint_schema(connection: sqlite3.Connection) -> None:
         )
         """
     )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parallel_sprint_seeding (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_key TEXT NOT NULL,
+            seed_position INTEGER NOT NULL,
+            team_name TEXT NOT NULL DEFAULT '',
+            UNIQUE(category_key, seed_position)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parallel_sprint_manual_mode (
+            category_key TEXT PRIMARY KEY,
+            manual INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
 
 
 def save_parallel_sprint_start_entries(
@@ -384,5 +403,62 @@ def clear_parallel_sprint_rounds(
         connection.execute(
             f"DELETE FROM parallel_sprint_heat_meta WHERE category_key = ? AND round_name IN ({placeholders})",
             params,
+        )
+        connection.commit()
+
+
+def get_seeding(db_path: Path, category_key: str) -> list[str]:
+    with sqlite3.connect(db_path) as connection:
+        _ensure_parallel_sprint_schema(connection)
+        rows = connection.execute(
+            "SELECT team_name FROM parallel_sprint_seeding WHERE category_key = ? ORDER BY seed_position",
+            (category_key,),
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
+def save_seeding(db_path: Path, category_key: str, team_names: list[str]) -> None:
+    with sqlite3.connect(db_path) as connection:
+        _ensure_parallel_sprint_schema(connection)
+        connection.execute(
+            "DELETE FROM parallel_sprint_seeding WHERE category_key = ?",
+            (category_key,),
+        )
+        connection.executemany(
+            "INSERT INTO parallel_sprint_seeding (category_key, seed_position, team_name) VALUES (?, ?, ?)",
+            [(category_key, i + 1, name) for i, name in enumerate(team_names)],
+        )
+        connection.commit()
+
+
+def clear_seeding(db_path: Path, category_key: str) -> None:
+    with sqlite3.connect(db_path) as connection:
+        _ensure_parallel_sprint_schema(connection)
+        connection.execute(
+            "DELETE FROM parallel_sprint_seeding WHERE category_key = ?",
+            (category_key,),
+        )
+        connection.commit()
+
+
+def get_manual_mode(db_path: Path, category_key: str) -> bool:
+    with sqlite3.connect(db_path) as connection:
+        _ensure_parallel_sprint_schema(connection)
+        row = connection.execute(
+            "SELECT manual FROM parallel_sprint_manual_mode WHERE category_key = ?",
+            (category_key,),
+        ).fetchone()
+    return bool(row[0]) if row else False
+
+
+def set_manual_mode(db_path: Path, category_key: str, manual: bool) -> None:
+    with sqlite3.connect(db_path) as connection:
+        _ensure_parallel_sprint_schema(connection)
+        connection.execute(
+            """
+            INSERT INTO parallel_sprint_manual_mode (category_key, manual) VALUES (?, ?)
+            ON CONFLICT(category_key) DO UPDATE SET manual = excluded.manual
+            """,
+            (category_key, 1 if manual else 0),
         )
         connection.commit()
