@@ -14,3 +14,4 @@ RaftSecretary/data/*.db
 RaftSecretary/exports/
 RaftSecretary/docs/plans/
 stitch_/
+.worktrees/
