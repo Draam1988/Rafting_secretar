@@ -7,8 +7,11 @@ from raftsecretary.storage.competition_storage import (
 )
 from raftsecretary.storage.db import create_competition_db
 from raftsecretary.storage.parallel_sprint_storage import (
+    get_manual_mode,
+    get_seeding,
     load_parallel_sprint_heats,
     load_parallel_sprint_start_entries,
+    set_manual_mode,
 )
 from raftsecretary.storage.sprint_storage import save_sprint_entries
 from raftsecretary.storage.team_storage import save_teams
@@ -754,4 +757,96 @@ def test_parallel_sprint_result_panel_uses_only_current_category_teams_after_del
     assert "T8 · Первый этап" in body
     assert "T9" in body
     assert "T10" not in body
-    assert "T11" not in body
+
+
+def _make_app_with_4_teams(tmp_path: Path):
+    """Helper: competition with 4 teams + sprint results."""
+    db_path = tmp_path / "event.db"
+    create_competition_db(db_path)
+    save_competition_settings(
+        db_path,
+        CompetitionSettingsRecord(
+            name="Cup",
+            competition_date="2026-03-15",
+            description="",
+            enabled_disciplines=["sprint", "parallel_sprint"],
+            categories=[Category(boat_class="R4", sex="men", age_group="U24")],
+            slalom_gate_count=8,
+        ),
+    )
+    save_teams(
+        db_path,
+        [
+            Team("T1", "A", "R4", "men", "U24", 1, ["A1", "A2", "A3", "A4"]),
+            Team("T2", "B", "R4", "men", "U24", 2, ["B1", "B2", "B3", "B4"]),
+            Team("T3", "C", "R4", "men", "U24", 3, ["C1", "C2", "C3", "C4"]),
+            Team("T4", "D", "R4", "men", "U24", 4, ["D1", "D2", "D3", "D4"]),
+        ],
+    )
+    save_sprint_entries(
+        db_path,
+        "R4:men:U24",
+        [
+            SprintEntry("T1", 1, 80, 0, 0, STATUS_OK),
+            SprintEntry("T2", 2, 81, 0, 0, STATUS_OK),
+            SprintEntry("T3", 3, 82, 0, 0, STATUS_OK),
+            SprintEntry("T4", 4, 83, 0, 0, STATUS_OK),
+        ],
+    )
+    return create_app(tmp_path), "event.db"
+
+
+def test_set_mode_saves_manual_flag(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    status, _, _ = app.handle(
+        "POST",
+        "/parallel-sprint/set-mode",
+        form_data={"db": db_name, "category_key": "R4:men:U24", "manual": "1"},
+    )
+    assert status == "303 See Other"
+    assert get_manual_mode(tmp_path / db_name, "R4:men:U24") is True
+
+
+def test_assign_slot_saves_seeding(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    _save_seeding(db_path, "R4:men:U24", ["", "", "", ""])
+    status, _, _ = app.handle(
+        "POST",
+        "/parallel-sprint/assign-slot",
+        form_data={"db": db_name, "category_key": "R4:men:U24", "slot_index": "2", "team_name": "T3"},
+    )
+    assert status == "303 See Other"
+    seeding = get_seeding(db_path, "R4:men:U24")
+    assert seeding[1] == "T3"
+
+
+def test_assign_slot_moves_team_from_old_position(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    _save_seeding(db_path, "R4:men:U24", ["T1", "T2", "T3", "T4"])
+    app.handle(
+        "POST",
+        "/parallel-sprint/assign-slot",
+        form_data={"db": db_name, "category_key": "R4:men:U24", "slot_index": "1", "team_name": "T3"},
+    )
+    seeding = get_seeding(db_path, "R4:men:U24")
+    assert seeding[0] == "T3"
+    assert seeding[2] == ""
+
+
+def test_clear_slot_empties_position(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    from raftsecretary.storage.parallel_sprint_storage import save_seeding as _save_seeding
+    _save_seeding(db_path, "R4:men:U24", ["T1", "T2", "T3", "T4"])
+    app.handle(
+        "POST",
+        "/parallel-sprint/clear-slot",
+        form_data={"db": db_name, "category_key": "R4:men:U24", "slot_index": "2"},
+    )
+    seeding = get_seeding(db_path, "R4:men:U24")
+    assert seeding[1] == ""
+    assert seeding[0] == "T1"

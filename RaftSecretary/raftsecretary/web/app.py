@@ -24,6 +24,8 @@ from raftsecretary.storage.judges_storage import (
 from raftsecretary.storage.parallel_sprint_storage import (
     clear_parallel_sprint_protocol,
     clear_parallel_sprint_rounds,
+    get_manual_mode,
+    get_seeding,
     load_parallel_sprint_heats,
     load_parallel_sprint_heat_meta,
     load_parallel_sprint_lineup_flags,
@@ -33,6 +35,8 @@ from raftsecretary.storage.parallel_sprint_storage import (
     save_parallel_sprint_heat_meta,
     save_parallel_sprint_lineup_flags,
     save_parallel_sprint_start_entries,
+    save_seeding,
+    set_manual_mode,
 )
 from raftsecretary.storage.slalom_storage import (
     clear_slalom_category,
@@ -272,6 +276,12 @@ class WebApp:
             return self._clear_parallel_sprint_response(form_data or {})
         if method == "POST" and route_path == "/parallel-sprint/clear-stage":
             return self._clear_parallel_sprint_stage_response(form_data or {})
+        if method == "POST" and route_path == "/parallel-sprint/set-mode":
+            return self._set_parallel_sprint_mode_response(form_data or {})
+        if method == "POST" and route_path == "/parallel-sprint/assign-slot":
+            return self._assign_parallel_sprint_slot_response(form_data or {})
+        if method == "POST" and route_path == "/parallel-sprint/clear-slot":
+            return self._clear_parallel_sprint_slot_response(form_data or {})
         if method == "POST" and route_path == "/parallel-sprint/start-list/save":
             return self._save_parallel_sprint_start_list_response(form_data or {})
         if method == "POST" and route_path == "/parallel-sprint/lineup":
@@ -870,6 +880,18 @@ class WebApp:
         available_teams = [
             team for team in teams if team.category_key == category_key
         ]
+        open_team_record = next((team for team in available_teams if team.name == open_team), None)
+        open_lineup_panel = ""
+        if open_team_record is not None:
+            open_lineup_panel = _discipline_lineup_panel_html(
+                "sprint-lineup",
+                db_name,
+                category_key,
+                "/sprint",
+                open_team_record,
+                _resolve_sprint_lineup(open_team_record, lineup_flags.get(open_team_record.name, {})),
+                "/sprint/lineup",
+            )
         rows = "".join(
             _sprint_table_row(
                 index,
@@ -879,7 +901,6 @@ class WebApp:
                 entry_by_team.get(team.name),
                 places_by_team.get(team.name),
                 _resolve_sprint_lineup(team, lineup_flags.get(team.name, {})),
-                open_team == team.name,
             )
             for index, team in enumerate(sorted(available_teams, key=lambda team: (entry_by_team.get(team.name).start_order if entry_by_team.get(team.name) else 9999, team.start_number, team.name)), start=1)
         ) or '<tr><td colspan="10">Для этой категории команд пока нет</td></tr>'
@@ -962,6 +983,7 @@ class WebApp:
       </div>
     </form>
   </section>
+  {open_lineup_panel}
 </section>
 """,
         )
@@ -1298,7 +1320,7 @@ class WebApp:
             save_sprint_lineup_flags(db_path, category_key, lineup_flags)
         return (
             "303 See Other",
-            [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}")],
+            [("Location", f"/sprint?db={quote(db_name)}&category={quote(category_key)}&open_team={quote(team_name)}#sprint-lineup")],
             "",
         )
 
@@ -1555,6 +1577,48 @@ class WebApp:
             grouped.setdefault(str(spec["round_title"]), []).append(spec)
         round_names = _parallel_round_names_from_title_and_later(grouped, order, stage_title)
         clear_parallel_sprint_rounds(db_path, category_key, round_names)
+        return ("303 See Other", [("Location", f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
+
+    def _set_parallel_sprint_mode_response(
+        self,
+        form_data: dict[str, str | bytes],
+    ) -> tuple[str, list[tuple[str, str]], str]:
+        db_name = str(form_data.get("db", ""))
+        category_key = str(form_data.get("category_key", ""))
+        manual = str(form_data.get("manual", "0")) == "1"
+        db_path = self.data_dir / db_name
+        set_manual_mode(db_path, category_key, manual)
+        return ("303 See Other", [("Location", f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
+
+    def _assign_parallel_sprint_slot_response(
+        self,
+        form_data: dict[str, str | bytes],
+    ) -> tuple[str, list[tuple[str, str]], str]:
+        db_name = str(form_data.get("db", ""))
+        category_key = str(form_data.get("category_key", ""))
+        slot_index = int(str(form_data.get("slot_index", "1")))
+        team_name = str(form_data.get("team_name", "")).strip()
+        db_path = self.data_dir / db_name
+        seeding = get_seeding(db_path, category_key)
+        while len(seeding) < slot_index:
+            seeding.append("")
+        seeding = ["" if name == team_name and i != slot_index - 1 else name for i, name in enumerate(seeding)]
+        seeding[slot_index - 1] = team_name
+        save_seeding(db_path, category_key, seeding)
+        return ("303 See Other", [("Location", f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
+
+    def _clear_parallel_sprint_slot_response(
+        self,
+        form_data: dict[str, str | bytes],
+    ) -> tuple[str, list[tuple[str, str]], str]:
+        db_name = str(form_data.get("db", ""))
+        category_key = str(form_data.get("category_key", ""))
+        slot_index = int(str(form_data.get("slot_index", "1")))
+        db_path = self.data_dir / db_name
+        seeding = get_seeding(db_path, category_key)
+        if 0 < slot_index <= len(seeding):
+            seeding[slot_index - 1] = ""
+            save_seeding(db_path, category_key, seeding)
         return ("303 See Other", [("Location", f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
 
     def _save_parallel_sprint_start_list_response(
@@ -2075,6 +2139,18 @@ class WebApp:
         default_position = {
             team.name: index for index, team in enumerate(default_order, start=1)
         }
+        open_team_record = next((team for team in available_teams if team.name == open_team), None)
+        open_lineup_panel = ""
+        if open_team_record is not None:
+            open_lineup_panel = _discipline_lineup_panel_html(
+                "long-race-lineup",
+                db_name,
+                category_key,
+                "/long-race",
+                open_team_record,
+                _resolve_sprint_lineup(open_team_record, lineup_flags.get(open_team_record.name, {})),
+                "/long-race/lineup",
+            )
         rows = "".join(
             _long_race_table_row(
                 index,
@@ -2084,7 +2160,6 @@ class WebApp:
                 entry_by_team.get(team.name),
                 places_by_team.get(team.name),
                 _resolve_sprint_lineup(team, lineup_flags.get(team.name, {})),
-                open_team == team.name,
             )
             for index, team in enumerate(
                 sorted(
@@ -2148,6 +2223,7 @@ class WebApp:
       </div>
     </form>
   </section>
+  {open_lineup_panel}
 </section>
 <script>
   document.addEventListener("DOMContentLoaded", function () {{
@@ -2288,7 +2364,7 @@ class WebApp:
             updated_flags[member_order] = make_active
             lineup_flags[team.name] = updated_flags
             save_long_race_lineup_flags(db_path, category_key, lineup_flags)
-        return ("303 See Other", [("Location", f"/long-race?db={quote(db_name)}&category={quote(category_key)}")], "")
+        return ("303 See Other", [("Location", f"/long-race?db={quote(db_name)}&category={quote(category_key)}&open_team={quote(team_name)}#long-race-lineup")], "")
 
     def _export_response(
         self,
@@ -6576,6 +6652,29 @@ def _sprint_lineup_cell(
 """
 
 
+def _discipline_lineup_link(
+    base_path: str,
+    db_name: str,
+    category_key: str,
+    team: Team,
+    lineup: list[dict[str, object]],
+) -> str:
+    active_count = len([item for item in lineup if bool(item["is_active"])])
+    required_count = _crew_main_count(team.boat_class)
+    count_label = f"Состав {active_count}/{required_count}"
+    href = f"{base_path}?db={quote(db_name)}&category={quote(category_key)}&open_team={quote(team.name)}"
+    warning_class = " lineup-warning invalid-year" if active_count != required_count else " lineup-warning"
+    return f"""
+<div class="slalom-lineup crew-cell protocol-crew">
+  <div>
+    <span class="slalom-lineup-label">состав команды</span>
+    <span class="{warning_class.strip()}">{count_label}</span>
+  </div>
+  <a class="slalom-lineup-link" href="{href}#{"sprint-lineup" if base_path == "/sprint" else "long-race-lineup"}">Состав</a>
+</div>
+"""
+
+
 def _sprint_lineup_member_control(
     db_name: str,
     category_key: str,
@@ -6611,11 +6710,10 @@ def _sprint_table_row(
     entry: SprintEntry | None,
     place: int | None,
     lineup: list[dict[str, object]],
-    is_open: bool,
 ) -> str:
     status_value = entry.status if entry else "OK"
     place_value = place if place is not None else ""
-    crew = _sprint_lineup_cell(db_name, category_key, team, lineup, is_open)
+    crew = _discipline_lineup_link("/sprint", db_name, category_key, team, lineup)
     return f"""
 <tr id="slalom-team-{team.start_number}">
   <td class="col-pp">
@@ -6643,20 +6741,12 @@ def _long_race_table_row(
     entry: SprintEntry | None,
     place: int | None,
     lineup: list[dict[str, object]],
-    is_open: bool,
 ) -> str:
     status_value = entry.status if entry else "OK"
     place_value = place if place is not None else ""
     is_non_participant = bool(entry and entry.start_order == 99)
     disabled_attr = ' disabled="disabled"' if is_non_participant else ""
-    crew = _sprint_lineup_cell(
-        db_name,
-        category_key,
-        team,
-        lineup,
-        is_open,
-        "/long-race/lineup",
-    )
+    crew = _discipline_lineup_link("/long-race", db_name, category_key, team, lineup)
     return f"""
 <tr>
   <td class="col-pp">
@@ -6866,6 +6956,48 @@ def _parallel_sprint_preview_columns_html(
 """
         )
     return "".join(columns)
+
+
+def _discipline_lineup_panel_html(
+    panel_id: str,
+    db_name: str,
+    category_key: str,
+    base_path: str,
+    team: Team,
+    lineup: list[dict[str, object]],
+    lineup_action_path: str,
+) -> str:
+    active_items = [item for item in lineup if bool(item["is_active"])]
+    inactive_items = [item for item in lineup if not bool(item["is_active"])]
+    active_html = "".join(
+        _sprint_lineup_member_control(db_name, category_key, team.name, item, "убрать", False, lineup_action_path)
+        for item in active_items
+    ) or '<li class="subtle">Пусто</li>'
+    inactive_html = "".join(
+        _sprint_lineup_member_control(db_name, category_key, team.name, item, "вернуть", True, lineup_action_path)
+        for item in inactive_items
+    ) or '<li class="subtle">Пусто</li>'
+    return f"""
+<section id="{panel_id}" class="panel-card parallel-lineup-panel">
+  <div class="section-head">
+    <div>
+      <h2>Состав команды</h2>
+      <p class="subtle">{escape(team.name)} · № {team.start_number}</p>
+    </div>
+    <a class="secondary-link" href="{base_path}?db={quote(db_name)}&category={quote(category_key)}">Скрыть</a>
+  </div>
+  <div class="parallel-lineup-grid">
+    <div>
+      <strong>В старте</strong>
+      <ul class="compact-list lineup-list">{active_html}</ul>
+    </div>
+    <div>
+      <strong>Вне старта</strong>
+      <ul class="compact-list lineup-list">{inactive_html}</ul>
+    </div>
+  </div>
+</section>
+"""
 
 
 def _parallel_sprint_preview_stage_one_pairs(ordered_teams: list[Team]) -> list[tuple[Team, Team]]:
