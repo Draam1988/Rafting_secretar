@@ -850,3 +850,31 @@ def test_clear_slot_empties_position(tmp_path: Path) -> None:
     seeding = get_seeding(db_path, "R4:men:U24")
     assert seeding[1] == ""
     assert seeding[0] == "T1"
+
+
+def test_auto_build_saves_seeding(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    app.handle(
+        "POST",
+        "/parallel-sprint/build",
+        form_data={"db": db_name, "category_key": "R4:men:U24",
+                   "draw_start_time": "10:00", "draw_interval": "00:02"},
+    )
+    seeding = get_seeding(tmp_path / db_name, "R4:men:U24")
+    assert len(seeding) == 4
+    assert seeding[0] == "T1"  # sprint rank 1 first
+
+
+def test_manual_build_creates_empty_slots(tmp_path: Path) -> None:
+    app, db_name = _make_app_with_4_teams(tmp_path)
+    db_path = tmp_path / db_name
+    set_manual_mode(db_path, "R4:men:U24", True)
+    app.handle(
+        "POST",
+        "/parallel-sprint/build",
+        form_data={"db": db_name, "category_key": "R4:men:U24",
+                   "draw_start_time": "10:00", "draw_interval": "00:02"},
+    )
+    seeding = get_seeding(db_path, "R4:men:U24")
+    assert len(seeding) == 4
+    assert all(name == "" for name in seeding)

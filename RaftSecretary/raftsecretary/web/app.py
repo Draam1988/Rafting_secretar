@@ -1512,22 +1512,27 @@ class WebApp:
 
     def _build_parallel_sprint_response(
         self,
-        form_data: dict[str, str],
+        form_data: dict[str, str | bytes],
     ) -> tuple[str, list[tuple[str, str]], str]:
-        db_name = form_data.get("db", "")
-        category_key = form_data.get("category_key", "")
+        db_name = str(form_data.get("db", ""))
+        category_key = str(form_data.get("category_key", ""))
         db_path = self.data_dir / db_name
+        manual_mode = get_manual_mode(db_path, category_key)
         teams = load_teams(db_path)
         active_team_names = {
             team.name for team in teams if team.category_key == category_key
         }
+        if manual_mode:
+            team_count = len(active_team_names)
+            save_seeding(db_path, category_key, [""] * team_count)
+            return ("303 See Other", [("Location", f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
         sprint_entries = [
             entry
             for entry in rank_sprint_entries(load_sprint_entries(db_path, category_key))
             if entry.team_name in active_team_names
         ]
-        base_minutes = _parse_hhmm(form_data.get("draw_start_time", "10:00").strip() or "10:00")
-        interval_minutes = _parse_hhmm(form_data.get("draw_interval", "00:02").strip() or "00:02")
+        base_minutes = _parse_hhmm(str(form_data.get("draw_start_time", "10:00")).strip() or "10:00")
+        interval_minutes = _parse_hhmm(str(form_data.get("draw_interval", "00:02")).strip() or "00:02")
         entries = [
             SprintEntry(
                 team_name=entry.team_name,
@@ -1541,6 +1546,8 @@ class WebApp:
             for index, entry in enumerate(sprint_entries, start=1)
         ]
         save_parallel_sprint_start_entries(db_path, category_key, entries)
+        team_order = [entry.team_name for entry in sprint_entries]
+        save_seeding(db_path, category_key, team_order)
         return ("303 See Other", [("Location", f"/parallel-sprint?db={quote(db_name)}&category={quote(category_key)}")], "")
 
     def _clear_parallel_sprint_response(
