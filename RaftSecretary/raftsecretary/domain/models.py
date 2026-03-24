@@ -57,6 +57,7 @@ class Team:
     club: str = ""
     representative_full_name: str = ""
     members: list[TeamMember] = field(default_factory=list)
+    id: int | None = field(default=None, compare=False)
 
     @property
     def category_key(self) -> str:

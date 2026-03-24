@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 from raftsecretary.domain.models import Category
@@ -163,6 +164,62 @@ def test_edit_team_page_keeps_target_category_open(tmp_path: Path) -> None:
     assert 'class="tc-category"' in body
     assert 'open>' in body
     assert 'value="Storm"' in body
+
+
+def test_edit_team_page_targets_exact_team_even_with_duplicate_numbers(tmp_path: Path) -> None:
+    db_path = tmp_path / "event.db"
+    create_competition_db(db_path)
+    app = create_app(tmp_path)
+
+    app.handle(
+        "POST",
+        "/settings/save",
+        form_data={
+            "db": "event.db",
+            "name": "Cup",
+            "competition_date": "2026-03-15",
+            "description": "",
+            "category__R4__men__U24": "on",
+        },
+    )
+    app.handle(
+        "POST",
+        "/teams/add",
+        form_data={
+            "db": "event.db",
+            "name": "Storm",
+            "region": "Moscow",
+            "boat_class": "R4",
+            "sex": "men",
+            "age_group": "U24",
+            "start_number": "7",
+            "athletes": "A1,A2,A3,A4",
+        },
+    )
+    app.handle(
+        "POST",
+        "/teams/add",
+        form_data={
+            "db": "event.db",
+            "name": "Wave",
+            "region": "Perm",
+            "boat_class": "R4",
+            "sex": "men",
+            "age_group": "U24",
+            "start_number": "8",
+            "athletes": "B1,B2,B3,B4",
+        },
+    )
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("UPDATE teams SET start_number = 7 WHERE name = 'Wave'")
+        wave_id = connection.execute("SELECT id FROM teams WHERE name = 'Wave'").fetchone()[0]
+        connection.commit()
+
+    status, _, body = app.handle("GET", f"/teams?db=event.db&edit_category=R4%3Amen%3AU24&edit_team_id={wave_id}")
+
+    assert status == "200 OK"
+    assert 'value="Wave"' in body
+    assert 'value="Perm"' in body
 
 
 def test_add_team_redirect_keeps_category_open(tmp_path: Path) -> None:

@@ -1,15 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from html import escape
+import json
 from pathlib import Path
 import random
+import threading
+import urllib.request
 from urllib.parse import parse_qs, quote, urlparse
 
 from raftsecretary.domain.models import Category, Team, TeamMember
 from raftsecretary.storage.competition_storage import load_competition_settings
 from raftsecretary.storage.competition_storage import CompetitionSettingsRecord, save_competition_settings
 from raftsecretary.storage.db import create_competition_db, delete_competition_db, list_competition_dbs
+from raftsecretary.storage.db import inspect_uploaded_db_bytes
 from raftsecretary.storage.judges_storage import (
     JudgeRecord,
     JudgesRecord,
@@ -70,6 +74,9 @@ from raftsecretary.domain.points import points_for_place
 APP_VERSION = "v.0.2.7"
 VERSION_DATE = "24.03.2026г."
 APP_AUTHOR = "Павел Хохрин"
+GITHUB_REPO = "Draam1988/Rafting_secretar"
+GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+GITHUB_RELEASES_PAGE = f"https://github.com/{GITHUB_REPO}/releases/latest"
 SPORT_RANK_OPTIONS = [
     "Б/Р",
     "МСМК",
@@ -137,6 +144,35 @@ CATEGORY_OPTIONS = [
 class WebApp:
     data_dir: Path
     log_file: Path | None = None
+    _update_version: str | None = field(default=None, init=False, compare=False)
+    _update_url: str | None = field(default=None, init=False, compare=False)
+
+    def __post_init__(self) -> None:
+        threading.Thread(target=self._check_for_update, daemon=True).start()
+
+    def _check_for_update(self) -> None:
+        try:
+            req = urllib.request.Request(
+                GITHUB_RELEASES_API,
+                headers={"User-Agent": f"RaftSecretary/{APP_VERSION}"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+            tag: str = data.get("tag_name", "")
+            html_url: str = data.get("html_url", GITHUB_RELEASES_PAGE)
+
+            def _parse(v: str) -> tuple[int, ...]:
+                cleaned = v.strip().lstrip("v").lstrip(".")
+                try:
+                    return tuple(int(p) for p in cleaned.split("."))
+                except ValueError:
+                    return (0,)
+
+            if tag and _parse(tag) > _parse(APP_VERSION):
+                self._update_version = tag
+                self._update_url = html_url
+        except Exception:
+            pass  # нет интернета, таймаут — молча игнорируем
 
     def handle(
         self,
@@ -149,7 +185,7 @@ class WebApp:
         query = {key: values[0] for key, values in parse_qs(parsed.query).items()}
 
         if method == "GET" and route_path == "/":
-            return self._home_response()
+            return self._home_response(query)
         if method == "GET" and route_path == "/competitions/delete":
             return self._delete_competition_confirmation_response(query)
         if method == "GET" and route_path == "/competitions/download":
@@ -267,16 +303,17 @@ class WebApp:
             self.log_file.write_text("", encoding="utf-8")
         return ("303 See Other", [("Location", "/")], "")
 
-    def _home_response(self) -> tuple[str, list[tuple[str, str]], str]:
+    def _home_response(self, query: dict[str, str]) -> tuple[str, list[tuple[str, str]], str]:
         db_files = list_competition_dbs(self.data_dir)
         latest_db = db_files[-1].name if db_files else ""
+        import_error = query.get("import_error", "")
         archive_items = (
             "".join(
                 f"""
 <div class="ledger-row">
   <a class="ledger-link" href="/dashboard?db={escape(path.name)}">{escape(_display_competition_name(path.name))}</a>
   <div class="ledger-actions">
-    <a class="ledger-dl-link" href="/competitions/download?db={quote(path.name)}">СКАЧАТЬ</a>
+    <a class="ledger-dl-link" href="/competitions/download?db={quote(path.name)}" download>СКАЧАТЬ</a>
     <a class="delete-link" href="/competitions/delete?db={quote(path.name)}">УДАЛИТЬ</a>
   </div>
 </div>
@@ -306,10 +343,24 @@ class WebApp:
             if has_errors
             else ""
         )
+        update_banner = (
+            f"""
+<div class="update-banner">
+  <div class="update-banner-body">
+    <strong>🆕 Доступна новая версия {escape(self._update_version)}.</strong>
+    Скачайте и замените папку приложения.
+  </div>
+  <a class="update-banner-dl" href="{escape(self._update_url)}" target="_blank">СКАЧАТЬ</a>
+</div>
+"""
+            if self._update_version
+            else ""
+        )
+        import_banner = _import_error_banner(import_error)
         body = _page(
             "RaftSecretary",
             f"""
-{error_banner}<div class="index-hero">
+{error_banner}{import_banner}{update_banner}<div class="index-hero">
   <div>
     <h1>RaftSecretary</h1>
   </div>
@@ -514,7 +565,7 @@ class WebApp:
             "200 OK",
             [
                 ("Content-Type", "application/octet-stream"),
-                ("Content-Disposition", f'attachment; filename="{db_name}"'),
+                ("Content-Disposition", _attachment_content_disposition(db_name)),
                 ("Content-Length", str(len(data))),
             ],
             data,
@@ -531,6 +582,9 @@ class WebApp:
         # Validate: SQLite magic bytes
         if not file_data.startswith(b"SQLite format 3\x00"):
             return ("303 See Other", [("Location", "/?import_error=invalid")], "")
+        is_valid, error_code = inspect_uploaded_db_bytes(file_data)
+        if not is_valid:
+            return ("303 See Other", [("Location", f"/?import_error={error_code or 'invalid'}")], "")
         # Sanitise filename
         safe_name = _normalize_filename(filename.removesuffix(".db") if filename.endswith(".db") else filename or "imported")
         dest = self.data_dir / f"{safe_name}.db"
@@ -742,6 +796,7 @@ class WebApp:
         db_path = self.data_dir / db_name
         settings = load_competition_settings(db_path)
         teams = load_teams(db_path)
+        editing_team_id = int(query.get("edit_team_id", "0") or 0)
         editing_category = query.get("edit_category", "")
         editing_number = int(query.get("edit_number", "0") or 0)
         open_category = query.get("open_category", "")
@@ -753,9 +808,9 @@ class WebApp:
                 db_name,
                 category,
                 teams_by_category.get(category.key, []),
-                _editing_team_for_category(teams_by_category.get(category.key, []), editing_category, editing_number, category.key),
+                _editing_team_for_category(teams_by_category.get(category.key, []), editing_team_id, editing_category, editing_number, category.key),
                 _first_competition_day(settings),
-                open_category or editing_category,
+                open_category or editing_category or (category.key if editing_team_id else ""),
             )
             for category in settings.categories
         ) or """
@@ -956,31 +1011,49 @@ class WebApp:
             if value.strip()
         ]
         members = _team_members_from_form(form_data)
+        editing_team_id = int(form_data.get("editing_team_id", "0") or 0)
         editing_category_key = form_data.get("editing_category_key", "").strip()
         editing_start_number = int(form_data.get("editing_start_number", "0") or 0)
+        if editing_team_id <= 0 and editing_category_key and editing_start_number > 0:
+            matching_team = next(
+                (
+                    team
+                    for team in existing
+                    if team.category_key == editing_category_key
+                    and team.start_number == editing_start_number
+                ),
+                None,
+            )
+            editing_team_id = matching_team.id if matching_team and matching_team.id is not None else 0
         existing = [
             team
             for team in existing
             if not (
-                editing_category_key
-                and team.category_key == editing_category_key
-                and team.start_number == editing_start_number
+                editing_team_id > 0
+                and team.id == editing_team_id
             )
         ]
-        existing.append(
-            Team(
-                name=form_data.get("name", "").strip(),
-                region=form_data.get("region", "").strip(),
-                club=form_data.get("club", "").strip(),
-                representative_full_name=form_data.get("representative_full_name", "").strip(),
-                boat_class=form_data.get("boat_class", "").strip(),
-                sex=form_data.get("sex", "").strip(),
-                age_group=form_data.get("age_group", "").strip(),
-                start_number=int(form_data.get("start_number", "0") or 0),
-                athletes=athletes,
-                members=members,
-            )
+        candidate_team = Team(
+            name=form_data.get("name", "").strip(),
+            region=form_data.get("region", "").strip(),
+            club=form_data.get("club", "").strip(),
+            representative_full_name=form_data.get("representative_full_name", "").strip(),
+            boat_class=form_data.get("boat_class", "").strip(),
+            sex=form_data.get("sex", "").strip(),
+            age_group=form_data.get("age_group", "").strip(),
+            start_number=int(form_data.get("start_number", "0") or 0),
+            athletes=athletes,
+            members=members,
+            id=editing_team_id or None,
         )
+        if editing_team_id == 0 and any(_teams_match_for_repeat_submit(team, candidate_team) for team in existing):
+            category_key = candidate_team.category_key
+            return (
+                "303 See Other",
+                [("Location", f"/teams?db={quote(db_name)}&open_category={quote(category_key)}#{('category-' + category_key.replace(':', '-'))}")],
+                "",
+            )
+        existing.append(candidate_team)
         save_teams(db_path, existing)
         category_key = Category(
             boat_class=form_data.get("boat_class", "").strip(),
@@ -998,18 +1071,23 @@ class WebApp:
         query: dict[str, str],
     ) -> tuple[str, list[tuple[str, str]], str]:
         db_name = query.get("db", "")
+        team_id = int(query.get("team_id", "0") or 0)
         category_key = query.get("category", "")
         start_number = int(query.get("start_number", "0") or 0)
         db_path = self.data_dir / db_name
-        team = next(
-            (
-                saved_team
-                for saved_team in load_teams(db_path)
-                if saved_team.category_key == category_key and saved_team.start_number == start_number
-            ),
-            None,
-        )
-        team_name = team.name if team else f"№ {start_number}"
+        loaded_teams = load_teams(db_path)
+        team = next((saved_team for saved_team in loaded_teams if saved_team.id == team_id), None)
+        if team is None and category_key and start_number > 0:
+            team = next(
+                (
+                    saved_team
+                    for saved_team in loaded_teams
+                    if saved_team.category_key == category_key and saved_team.start_number == start_number
+                ),
+                None,
+            )
+            team_id = team.id if team and team.id is not None else 0
+        team_name = team.name if team else "команду"
         body = _page(
             "Удаление команды",
             f"""
@@ -1026,10 +1104,7 @@ class WebApp:
     <p class="confirm-text">Удалить команду <strong>{escape(team_name)}</strong>?</p>
     <form method="post" action="/teams/delete" class="confirm-actions">
       <input type="hidden" name="db" value="{escape(db_name)}" />
-      <input type="hidden" name="boat_class" value="{escape(team.boat_class if team else '')}" />
-      <input type="hidden" name="sex" value="{escape(team.sex if team else '')}" />
-      <input type="hidden" name="age_group" value="{escape(team.age_group if team else '')}" />
-      <input type="hidden" name="start_number" value="{start_number}" />
+      <input type="hidden" name="team_id" value="{team_id}" />
       <input type="hidden" name="confirm" value="yes" />
       <button type="submit" class="danger-button">Удалить</button>
       <a class="secondary-link" href="/teams?db={escape(db_name)}">Отмена</a>
@@ -1047,12 +1122,27 @@ class WebApp:
         db_name = form_data.get("db", "")
         db_path = self.data_dir / db_name
         if form_data.get("confirm") == "yes":
-            boat_class = form_data.get("boat_class", "")
-            sex = form_data.get("sex", "")
-            age_group = form_data.get("age_group", "")
-            start_number = int(form_data.get("start_number", "0") or 0)
-            if boat_class and sex and age_group and start_number > 0:
-                delete_team(db_path, boat_class, sex, age_group, start_number)
+            team_id = int(form_data.get("team_id", "0") or 0)
+            if team_id <= 0:
+                boat_class = form_data.get("boat_class", "")
+                sex = form_data.get("sex", "")
+                age_group = form_data.get("age_group", "")
+                start_number = int(form_data.get("start_number", "0") or 0)
+                if boat_class and sex and age_group and start_number > 0:
+                    matching_team = next(
+                        (
+                            team
+                            for team in load_teams(db_path)
+                            if team.boat_class == boat_class
+                            and team.sex == sex
+                            and team.age_group == age_group
+                            and team.start_number == start_number
+                        ),
+                        None,
+                    )
+                    team_id = matching_team.id if matching_team and matching_team.id is not None else 0
+            if team_id > 0:
+                delete_team(db_path, team_id)
         return ("303 See Other", [("Location", f"/teams?db={quote(db_name)}")], "")
 
     def _save_judges_response(
@@ -5492,6 +5582,30 @@ def _page(title: str, content: str) -> str:
         cursor: pointer;
         white-space: nowrap;
       }}
+      .update-banner {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        background: #e8f5e9;
+        border: 1px solid #a5d6a7;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #1b5e20;
+      }}
+      .update-banner-body {{ flex: 1; line-height: 1.5; }}
+      .update-banner-dl {{
+        flex-shrink: 0;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #1b5e20;
+        text-decoration: underline;
+        white-space: nowrap;
+      }}
       .index-hero {{
         border-bottom: 1px solid var(--line);
         padding-bottom: 32px;
@@ -6358,6 +6472,30 @@ def _display_competition_name(db_name: str) -> str:
     if db_name.endswith(".db"):
         return db_name[:-3]
     return db_name
+
+
+def _attachment_content_disposition(filename: str) -> str:
+    safe_ascii_name = "competition.db"
+    encoded_name = quote(filename, safe="")
+    return f'attachment; filename="{safe_ascii_name}"; filename*=UTF-8\'\'{encoded_name}'
+
+
+def _import_error_banner(import_error: str) -> str:
+    messages = {
+        "empty": "Файл не был выбран. Выберите файл соревнования .db и повторите импорт.",
+        "invalid": "Файл не похож на корректную базу соревнования SQLite.",
+        "incompatible": "Этот файл создан в более новой версии RaftSecretary и может открыться некорректно.",
+    }
+    message = messages.get(import_error)
+    if not message:
+        return ""
+    return f"""
+<div class="error-banner">
+  <div class="error-banner-body">
+    <strong>Импорт не выполнен.</strong> {escape(message)}
+  </div>
+</div>
+"""
 
 def _resolve_sprint_lineup(team: Team, stored_flags: dict[int, bool]) -> list[dict[str, object]]:
     resolved: list[dict[str, object]] = []
@@ -7848,8 +7986,7 @@ def _team_category_block(
       <input type="hidden" name="boat_class" value="{escape(category.boat_class)}" />
       <input type="hidden" name="sex" value="{escape(category.sex)}" />
       <input type="hidden" name="age_group" value="{escape(category.age_group)}" />
-      <input type="hidden" name="editing_category_key" value="{escape(editing_team.category_key if editing_team else '')}" />
-      <input type="hidden" name="editing_start_number" value="{editing_team.start_number if editing_team else ''}" />
+      <input type="hidden" name="editing_team_id" value="{editing_team.id if editing_team and editing_team.id is not None else ''}" />
       <div class="team-form-grid">
         <label>Название команды <input name="name" value="{escape(editing_team.name if editing_team else '')}" /></label>
         <label>Номер <input name="start_number" value="{editing_team.start_number if editing_team else ''}" /></label>
@@ -7950,8 +8087,8 @@ def _saved_team_card(db_name: str, team: Team) -> str:
       <div class="tc-team-sub">{escape(team.region or 'Регион не указан')}{(' · ' + escape(team.club)) if team.club else ''}</div>
     </div>
     <div class="tc-team-controls">
-      <a class="tc-team-edit-link" href="/teams?db={escape(db_name)}&edit_category={quote(team.category_key)}&edit_number={team.start_number}#category-{team.category_key.replace(':', '-')}">Ред.</a>
-      <a class="tc-team-delete-link" href="/teams/delete?db={escape(db_name)}&category={quote(team.category_key)}&start_number={team.start_number}">Удалить</a>
+      <a class="tc-team-edit-link" href="/teams?db={escape(db_name)}&edit_category={quote(team.category_key)}&edit_team_id={team.id or 0}#category-{team.category_key.replace(':', '-')}">Ред.</a>
+      <a class="tc-team-delete-link" href="/teams/delete?db={escape(db_name)}&team_id={team.id or 0}">Удалить</a>
     </div>
   </summary>
   <div class="tc-team-body">
@@ -7964,16 +8101,33 @@ def _saved_team_card(db_name: str, team: Team) -> str:
 
 def _editing_team_for_category(
     teams: list[Team],
+    editing_team_id: int,
     editing_category: str,
     editing_number: int,
     current_category: str,
 ) -> Team | None:
-    if editing_category != current_category or editing_number <= 0:
+    if editing_category != current_category:
         return None
     for team in teams:
-        if team.start_number == editing_number:
+        if editing_team_id > 0 and team.id == editing_team_id:
+            return team
+        if editing_team_id <= 0 and editing_number > 0 and team.start_number == editing_number:
             return team
     return None
+
+
+def _teams_match_for_repeat_submit(left: Team, right: Team) -> bool:
+    return (
+        left.name == right.name
+        and left.region == right.region
+        and left.club == right.club
+        and left.representative_full_name == right.representative_full_name
+        and left.boat_class == right.boat_class
+        and left.sex == right.sex
+        and left.age_group == right.age_group
+        and left.start_number == right.start_number
+        and left.crew_members == right.crew_members
+    )
 
 
 def _member_or_empty(team: Team | None, index: int, role: str) -> TeamMember | None:

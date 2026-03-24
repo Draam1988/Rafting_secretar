@@ -6,21 +6,12 @@ from pathlib import Path
 from raftsecretary.domain.models import Team, TeamMember
 
 
-def delete_team(db_path: Path, boat_class: str, sex: str, age_group: str, start_number: int) -> None:
-    """Delete a single team by its unique identity. Safer than load-filter-save."""
+def delete_team(db_path: Path, team_id: int) -> None:
+    """Delete a single team by its persistent database id."""
     with sqlite3.connect(db_path) as connection:
         _ensure_team_schema(connection)
-        team_ids = [
-            row[0]
-            for row in connection.execute(
-                "SELECT id FROM teams WHERE boat_class=? AND sex=? AND age_group=? AND start_number=?",
-                (boat_class, sex, age_group, start_number),
-            ).fetchall()
-        ]
-        if team_ids:
-            placeholders = ",".join("?" * len(team_ids))
-            connection.execute(f"DELETE FROM athletes WHERE team_id IN ({placeholders})", team_ids)
-            connection.execute(f"DELETE FROM teams WHERE id IN ({placeholders})", team_ids)
+        connection.execute("DELETE FROM athletes WHERE team_id = ?", (team_id,))
+        connection.execute("DELETE FROM teams WHERE id = ?", (team_id,))
         connection.commit()
 
 
@@ -31,24 +22,45 @@ def save_teams(db_path: Path, teams: list[Team]) -> None:
         connection.execute("DELETE FROM teams")
 
         for team in teams:
-            cursor = connection.execute(
-                """
-                INSERT INTO teams (
-                    name, region, club, representative_full_name, boat_class, sex, age_group, start_number
+            if team.id is None:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO teams (
+                        name, region, club, representative_full_name, boat_class, sex, age_group, start_number
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        team.name,
+                        team.region,
+                        team.club,
+                        team.representative_full_name,
+                        team.boat_class,
+                        team.sex,
+                        team.age_group,
+                        team.start_number,
+                    ),
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    team.name,
-                    team.region,
-                    team.club,
-                    team.representative_full_name,
-                    team.boat_class,
-                    team.sex,
-                    team.age_group,
-                    team.start_number,
-                ),
-            )
+            else:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO teams (
+                        id, name, region, club, representative_full_name, boat_class, sex, age_group, start_number
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        team.id,
+                        team.name,
+                        team.region,
+                        team.club,
+                        team.representative_full_name,
+                        team.boat_class,
+                        team.sex,
+                        team.age_group,
+                        team.start_number,
+                    ),
+                )
             team_id = cursor.lastrowid
             members = team.members or [
                 TeamMember(full_name=athlete_name, birth_date="", rank="", role="main")
@@ -125,6 +137,7 @@ def load_teams(db_path: Path) -> list[Team]:
                     start_number=start_number,
                     athletes=plain_athletes,
                     members=members,
+                    id=team_id,
                 )
             )
 

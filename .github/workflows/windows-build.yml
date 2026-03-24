@@ -44,3 +44,19 @@ jobs:
         with:
           name: RaftSecretary-windows-${{ steps.version.outputs.version }}
           path: RaftSecretary/dist/RaftSecretary
+
+      - name: Zip build for release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: Compress-Archive -Path dist\RaftSecretary\* -DestinationPath dist\RaftSecretary-windows.zip
+        shell: pwsh
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} `
+            dist\RaftSecretary-windows.zip `
+            --title "RaftSecretary ${{ steps.version.outputs.version }}" `
+            --notes "## RaftSecretary ${{ steps.version.outputs.version }}`n`nСборка для Windows.`n`nРаспакуйте архив и запустите `RaftSecretary.exe`."
+        shell: pwsh
