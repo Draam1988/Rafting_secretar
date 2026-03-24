@@ -95,3 +95,38 @@ def test_home_page_shows_import_error_for_incompatible_version(tmp_path: Path) -
 
     assert status == "200 OK"
     assert "более новой версии" in body
+
+
+def test_import_allows_same_schema_with_different_app_version_and_sets_notice(tmp_path: Path) -> None:
+    source_db = tmp_path / "compatible.db"
+    create_competition_db(source_db)
+    with sqlite3.connect(source_db) as connection:
+        connection.execute(
+            "INSERT OR REPLACE INTO app_meta (key, value) VALUES ('app_version', 'v.9.9.9')"
+        )
+        connection.commit()
+    app = create_app(tmp_path)
+
+    status, headers, body = app.handle(
+        "POST",
+        "/competitions/import",
+        form_data={
+            "db_file": source_db.read_bytes(),
+            "db_file__filename": "compatible.db",
+        },
+    )
+
+    assert status == "303 See Other"
+    assert ("Location", "/?import_notice=version_mismatch&db=compatible.db") in headers
+    assert body == ""
+    assert (tmp_path / "compatible.db").exists()
+
+
+def test_home_page_shows_import_notice_for_version_mismatch(tmp_path: Path) -> None:
+    app = create_app(tmp_path)
+
+    status, _, body = app.handle("GET", "/?import_notice=version_mismatch&db=compatible.db")
+
+    assert status == "200 OK"
+    assert "создан в другой версии приложения" in body
+    assert "compatible.db" in body

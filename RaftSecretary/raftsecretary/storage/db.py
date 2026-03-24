@@ -78,6 +78,10 @@ def inspect_uploaded_db_bytes(file_data: bytes) -> tuple[bool, str]:
                 except ValueError:
                     return (False, "invalid")
             return (False, "invalid")
+        meta = read_app_meta(tmp_path)
+        app_version = meta.get("app_version", "").strip()
+        if app_version and app_version != CURRENT_APP_VERSION:
+            return (True, "version_mismatch")
         return (True, "")
     finally:
         tmp_path.unlink(missing_ok=True)

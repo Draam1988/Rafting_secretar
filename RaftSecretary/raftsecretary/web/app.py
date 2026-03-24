@@ -307,6 +307,8 @@ class WebApp:
         db_files = list_competition_dbs(self.data_dir)
         latest_db = db_files[-1].name if db_files else ""
         import_error = query.get("import_error", "")
+        import_notice = query.get("import_notice", "")
+        import_notice_db = query.get("db", "")
         archive_items = (
             "".join(
                 f"""
@@ -357,10 +359,11 @@ class WebApp:
             else ""
         )
         import_banner = _import_error_banner(import_error)
+        import_notice_banner = _import_notice_banner(import_notice, import_notice_db)
         body = _page(
             "RaftSecretary",
             f"""
-{error_banner}{import_banner}{update_banner}<div class="index-hero">
+{error_banner}{import_banner}{import_notice_banner}{update_banner}<div class="index-hero">
   <div>
     <h1>RaftSecretary</h1>
   </div>
@@ -589,6 +592,8 @@ class WebApp:
         safe_name = _normalize_filename(filename.removesuffix(".db") if filename.endswith(".db") else filename or "imported")
         dest = self.data_dir / f"{safe_name}.db"
         dest.write_bytes(file_data)
+        if error_code == "version_mismatch":
+            return ("303 See Other", [("Location", f"/?import_notice=version_mismatch&db={quote(dest.name)}")], "")
         return ("303 See Other", [("Location", f"/dashboard?db={quote(dest.name)}")], "")
 
     def _settings_response(
@@ -6493,6 +6498,19 @@ def _import_error_banner(import_error: str) -> str:
 <div class="error-banner">
   <div class="error-banner-body">
     <strong>Импорт не выполнен.</strong> {escape(message)}
+  </div>
+</div>
+"""
+
+
+def _import_notice_banner(import_notice: str, db_name: str) -> str:
+    if import_notice != "version_mismatch":
+        return ""
+    db_label = escape(db_name) if db_name else "файл соревнования"
+    return f"""
+<div class="error-banner" style="border-color:#caa96b;color:#5b4521;background:#f7f0de;">
+  <div class="error-banner-body">
+    <strong>Импорт выполнен с предупреждением.</strong> Файл <code>{db_label}</code> создан в другой версии приложения. Структура базы совместима, но после открытия стоит быстро проверить данные.
   </div>
 </div>
 """
