@@ -1,3 +1,3 @@
 # Test
 
-Online booking system added.
+Payment bug fixed. Orders no longer lost on tab close.
