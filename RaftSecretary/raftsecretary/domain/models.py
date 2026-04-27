@@ -16,6 +16,11 @@ SEX_ALIASES = {
     "женщины": "women",
 }
 
+SEX_DISPLAY = {
+    "men": "мужчины",
+    "women": "женщины",
+}
+
 
 def normalize_sex(value: str) -> str:
     normalized = value.strip().lower()
@@ -35,6 +40,11 @@ class Category:
     @property
     def key(self) -> str:
         return f"{self.boat_class}:{self.normalized_sex}:{self.age_group}"
+
+    @property
+    def display_name(self) -> str:
+        sex = SEX_DISPLAY.get(self.normalized_sex, self.normalized_sex)
+        return f"{self.boat_class} {sex} {self.age_group}".strip()
 
 
 @dataclass(frozen=True)
